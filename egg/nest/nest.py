@@ -79,4 +79,3 @@ if __name__ == '__main__':
         for job in jobs:
             print(jobs)
             job._send_requeue_signal(timeout=False)
-

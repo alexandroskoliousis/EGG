@@ -304,7 +304,7 @@ class RnnReceiverDeterministic(nn.Module):
         logits = torch.zeros(agent_output.size(0)).to(agent_output.device)
         entropy = logits
 
-        return agent_output, logits, entropy
+        return agent_output, logits, entropy#, rnn_hidden #,
 
 
 class SenderReceiverRnnReinforce(nn.Module):
@@ -454,7 +454,7 @@ class TransformerReceiverDeterministic(nn.Module):
         logits = torch.zeros(agent_output.size(0)).to(agent_output.device)
         entropy = logits
 
-        return agent_output, logits, entropy
+        return agent_output, logits, entropy#, transformed #,
 
 
 class TransformerSenderReinforce(nn.Module):
