@@ -34,7 +34,6 @@ class Trainer:
     Implements the training logic. Some common configuration (checkpointing frequency, path, validation frequency)
     is done by checking util.common_opts that is set via the CL.
     """
-<<<<<<< HEAD
     def __init__(
             self,
             game: torch.nn.Module,
@@ -43,7 +42,7 @@ class Trainer:
             validation_data: Optional[DataLoader] = None,
             device: torch.device = None,
             callbacks: Optional[List[Callback]] = None,
-            self.distribution: list = None
+            distribution: list = None
     ):
         """
         :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),

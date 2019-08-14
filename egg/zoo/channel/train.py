@@ -126,7 +126,6 @@ def main(params):
 
     train_loader = OneHotLoader(n_features=opts.n_features, batch_size=opts.batch_size,
                                 batches_per_epoch=opts.batches_per_epoch, probs=probs)
-
     # single batches with 1s on the diag
     test_loader = UniformLoader(opts.n_features)
 
