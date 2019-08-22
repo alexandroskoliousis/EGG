@@ -6,17 +6,21 @@
 import json
 import argparse
 import numpy as np
+import random
+import itertools
 import torch.utils.data
 import torch.nn.functional as F
+
 import egg.core as core
 from egg.core import EarlyStopperAccuracy
-from egg.zoo.channel.features import OneHotLoader, UniformLoader
-from egg.zoo.channel.archs import Sender, Receiver
+from egg.zoo.compositionalEncoding.features import SimpleLoader, CompositionalLoader, \
+                                                    ConcatLoader, UniformLoader, Split_Train_Test
+from egg.zoo.compositionalEncoding.archs import Sender, Receiver
 
 
 def get_params(params):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n_features', type=int, default=10,
+    parser.add_argument('--dimensions', type=str, default='[8]',
                         help='Dimensionality of the "concept" space (default: 10)')
     parser.add_argument('--batches_per_epoch', type=int, default=1000,
                         help='Number of batches per epoch (default: 1000)')
@@ -60,6 +64,8 @@ def get_params(params):
 
     parser.add_argument('--probs', type=str, default='uniform',
                         help="Prior distribution over the concepts (default: uniform)")
+    parser.add_argument('--complex_gram', type=str, default='surface',
+                        help="how to build distribution over the complex concepts (default: surface)")
     parser.add_argument('--length_cost', type=float, default=0.0,
                         help="Penalty for the message length, each symbol would before <EOS> would be "
                              "penalized by this cost (default: 0.0)")
@@ -67,12 +73,6 @@ def get_params(params):
                         help="Name for your checkpoint (default: model)")
     parser.add_argument('--early_stopping_thr', type=float, default=0.9999,
                         help="Early stopping threshold on accuracy (default: 0.9999)")
-
-    # TEMP
-    parser.add_argument('--sender_lr', type=float, default=0.001,
-                        help="Learning rate for Sender's parameters (default: 1e-2)")
-    parser.add_argument('--receiver_lr', type=float, default=0.001,
-                        help="Learning rate for Receiver's parameters (default: 1e-2)")
 
     args = core.init(parser, params)
 
@@ -119,46 +119,81 @@ def main(params):
     device = opts.device
 
     force_eos = opts.force_eos == 1
+    dimensions = eval(opts.dimensions)
 
+    probs = []
     if opts.probs == 'uniform':
-        probs = np.ones(opts.n_features)
+        for dim in dimensions:
+            probs_nonnorm = np.ones(dim)
+            probs.append(probs_nonnorm/probs_nonnorm.sum())
     elif opts.probs == 'powerlaw':
-        probs = 1 / np.arange(1, opts.n_features+1, dtype=np.float32)
+        for dim in dimensions:
+            probs_nonnorm = 1 / np.arange(1, dim+1, dtype=np.float32)
+            probs.append(probs_nonnorm/probs_nonnorm.sum())
     else:
-        probs = np.array([float(x) for x in opts.probs.split(',')], dtype=np.float32)
-    probs /= probs.sum()
+        print('Not supported feature')
+        sys.exit("Error message")
 
-    print('the probs are: ', probs, flush=True)
+    #print('the probs are: ', probs, flush=True)
+    if opts.complex_gram=='surface':
+        nbr_complex = 1
+        for dim in dimensions:
+            nbr_complex *= dim
+        if opts.probs == 'uniform':
+            probs_nonnorm = np.ones(nbr_complex)
+            complex_probs = probs_nonnorm/probs_nonnorm.sum()
+        else:
+            probs_nonnorm = 1 / np.arange(1, nbr_complex+1, dtype=np.float32)
+            complex_probs = probs_nonnorm/probs_nonnorm.sum()
 
-    train_loader = OneHotLoader(n_features=opts.n_features, batch_size=opts.batch_size,
-                                batches_per_epoch=opts.batches_per_epoch, probs=probs)
+    elif opts.complex_gram=='base':
+        complex_probs_nonnorm = []
+        combinations_prob = itertools.product(*probs)
+        for p in combinations_prob:
+            mult = 1
+            for t_p in p:
+                mult*=t_p
+            complex_probs_nonnorm.append(mult)
+        complex_probs = complex_probs_nonnorm/sum(complex_probs_nonnorm)
 
-    # single batches with 1s on the diag
-    test_loader = UniformLoader(opts.n_features)
+    else:
+        print('Not supported complex_gram')
+        sys.exit("Error message")
+
+    (train, new_comp_proba), test = Split_Train_Test(dimensions, probs, complex_probs, ratio=0.9)
+    comp_proba = new_comp_proba/sum(new_comp_proba)
+
+    # Simple referents
+    sl_loader = SimpleLoader(dimensions, opts.batches_per_epoch, int(round(opts.batch_size/(2.*len(dimensions)))), probs)
+    # Complex referent
+    cl_loader = CompositionalLoader(train, opts.batches_per_epoch, int(round(opts.batch_size/2.)), comp_proba)
+
+    train_loader = ConcatLoader(sl_loader, cl_loader)
+    validation_loader = UniformLoader(dimensions, torch.FloatTensor(train))
 
     if opts.sender_cell == 'transformer':
-        sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_embedding)
-        sender = core.TransformerSenderReinforce(sender, opts.vocab_size,
-                                                 opts.sender_embedding, opts.max_len,
-                                                 opts.sender_num_layers, opts.sender_num_heads,
-                                                 ffn_embed_dim=opts.sender_hidden,
+        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_embedding)
+        sender = core.TransformerSenderReinforce(agent=sender, vocab_size=opts.vocab_size,
+                                                 embed_dim=opts.sender_embedding, max_len=opts.max_len,
+                                                 num_layers=opts.sender_num_layers, num_heads=opts.sender_num_heads,
+                                                 hidden_size=opts.sender_hidden,
                                                  force_eos=opts.force_eos,
                                                  generate_style=opts.sender_generate_style,
                                                  causal=opts.causal_sender)
     else:
-        sender = Sender(n_features=opts.n_features, n_hidden=opts.sender_hidden)
+        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_hidden)
 
         sender = core.RnnSenderReinforce(sender,
                                    opts.vocab_size, opts.sender_embedding, opts.sender_hidden,
                                    cell=opts.sender_cell, max_len=opts.max_len, num_layers=opts.sender_num_layers,
                                    force_eos=force_eos)
     if opts.receiver_cell == 'transformer':
-        receiver = Receiver(n_features=opts.n_features, n_hidden=opts.receiver_embedding)
+        receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_embedding)
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
     else:
-        receiver = Receiver(n_features=opts.n_features, n_hidden=opts.receiver_hidden)
+        receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
         receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
                                              opts.receiver_hidden, cell=opts.receiver_cell,
                                              num_layers=opts.receiver_num_layers)
@@ -167,27 +202,16 @@ def main(params):
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost)
 
-    callback = None
-
-    #optimizer = core.build_optimizer(game.parameters())
-
-    #TEMP
-    optimizer = torch.optim.Adam([
-        {'params': game.sender.parameters(), 'lr': opts.sender_lr},
-        {'params': game.receiver.parameters(), 'lr': opts.receiver_lr}
-    ])
-
-    early_stopper = EarlyStopperAccuracy(opts.early_stopping_thr)
+    optimizer = core.build_optimizer(game.parameters())
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=test_loader, epoch_callback=callback,
-                           early_stopping=early_stopper, distribution=probs)
+                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr)], distribution=probs)
 
-    trainer.train(n_epochs=opts.n_epochs)
+    #trainer.train(n_epochs=opts.n_epochs)
     if opts.checkpoint_dir:
         trainer.save_checkpoint(name=f'{opts.name}_vocab{opts.vocab_size}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
-    dump(trainer.game, opts.n_features, device, False)
+    #dump(trainer.game, opts.n_features, device, False) TODO: redo it
     core.close()
 
 
