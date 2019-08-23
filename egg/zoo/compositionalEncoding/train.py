@@ -104,10 +104,12 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 
 def dump(game, partition, train, test, device, gs_mode):
     # tiny "dataset"
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
-
+        #toto = [[0,1,0,1,0,0], [0,0,1,1,0,0], [1,0,0,0,1,0], [1,0,0,0,0,1]]
+        #train.extend(toto)
+        #dataset = [[torch.FloatTensor(train).to(device), None]]
         sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
             core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, variable_length=True)
 

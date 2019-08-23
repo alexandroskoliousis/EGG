@@ -113,8 +113,6 @@ class Trainer:
         self.game.eval()
         with torch.no_grad():
             for batch in self.validation_data:
-                #print('eval')
-                #print(batch)
                 batch = move_to(batch, self.device)
                 optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions], Print=False)
                 mean_loss += optimized_loss
@@ -171,6 +169,9 @@ class Trainer:
 
             if self.should_stop:
                 break
+
+            if epoch == 10:
+                import pdb; pdb.set_trace()
 
         for callback in self.callbacks:
             callback.on_train_end()
