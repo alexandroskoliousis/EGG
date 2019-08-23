@@ -102,8 +102,9 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
     #import pdb; pdb.set_trace()
     return loss, {'acc': acc}
 
-def dump(game, partition, test, device, gs_mode):
+def dump(game, partition, train, test, device, gs_mode):
     # tiny "dataset"
+    import pdb; pdb.set_trace()
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
 
@@ -236,7 +237,7 @@ def main(params):
         trainer.save_checkpoint(name=f'{opts.name}_vocab{opts.vocab_size}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
     """
 
-    dump(trainer.game, dimensions, test, device, False)
+    dump(trainer.game, dimensions, train, test, device, False)
     core.close()
 
 
