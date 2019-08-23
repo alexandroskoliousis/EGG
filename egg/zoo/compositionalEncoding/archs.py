@@ -28,7 +28,7 @@ class CompoReceiver(nn.Module):
         start = 0
         outputs = []
         for p in self.partition:
-            outputs.append(x[:, start:(start+p)].sigmoid())
+            outputs.append(x[:, start:(start+p)].softmax())
             start += p
         return torch.cat(outputs,1)
 

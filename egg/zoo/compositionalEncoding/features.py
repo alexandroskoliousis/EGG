@@ -29,12 +29,11 @@ def DF_split(df, ratio=0.9, seed=1):
     return (list(train['referent']), np.array(train['Surface'])), list(test['referent'])
 
 def dataFrameConstruction(dimensions, simple_prob, complex_prob):
-    all_poss = np.eye(sum(dimensions))
     list_poss = []
-    start = 0
     for dim in dimensions:
-        list_poss.append(all_poss[start:(start+dim)])
-        start+=dim
+        all_poss = torch.eye(dim)
+        list_poss.append(torch.cat((torch.zeros((all_poss.shape[0], 1)), all_poss), 1))
+
     combinations_inputs = itertools.product(*list_poss)
     combinations_freqs = itertools.product(*simple_prob)
 
@@ -43,7 +42,7 @@ def dataFrameConstruction(dimensions, simple_prob, complex_prob):
         base_freq = 1
         for i in freq:
             base_freq*=i
-        diff_freq['referent'].append(sum(inp))
+        diff_freq['referent'].append(torch.cat(inp).numpy())
         diff_freq['Base'].append(base_freq)
         diff_freq['Surface'].append(complex_prob[count])
     return pd.DataFrame(diff_freq)
@@ -155,14 +154,15 @@ class _SimpleIterator:
         simple_batch = torch.Tensor()
         for pos in range(len(self.all_dim)):
             batch_data = self.random_state.multinomial(1, self.probs[pos], size=self.batch_size)
-            torch_batch_data = torch.from_numpy(batch_data).float()
+            torch_batch_data = torch.cat((torch.zeros((batch_data.shape[0], 1)), torch.from_numpy(batch_data).float()), 1)
 
             new_batch_data = torch.Tensor()
             for i, dim in enumerate(self.all_dim):
                 if i==pos:
                     new_batch_data = torch.cat((new_batch_data,torch_batch_data),1)
                 else:
-                    new_batch_data = torch.cat((new_batch_data, torch.zeros((torch_batch_data.size(0), dim))),1)
+                    other_dim = torch.eye(dim+1)[:,0].repeat(torch_batch_data.size(0), 1)
+                    new_batch_data = torch.cat((new_batch_data, other_dim),1)
 
             simple_batch = torch.cat((simple_batch, new_batch_data))
 
@@ -260,7 +260,22 @@ class ConcatLoader(torch.utils.data.DataLoader):
 
 class UniformLoader(torch.utils.data.DataLoader):
     def __init__(self, dimensions, complex_train):
-        simple = torch.eye(sum(dimensions))
+
+        simple = torch.Tensor()
+        for pos, a_dim in enumerate(dimensions):
+            data = torch.eye(a_dim)
+            torch_data = torch.cat((torch.zeros((data.shape[0], 1)), data.float()), 1)
+
+            new_data = torch.Tensor()
+            for i, dim in enumerate(dimensions):
+                if i==pos:
+                    new_data = torch.cat((new_data,torch_data),1)
+                else:
+                    other_dim = torch.eye(dim+1)[:,0].repeat(torch_data.size(0), 1)
+                    new_data = torch.cat((new_data, other_dim),1)
+
+            simple = torch.cat((simple, new_data))
+
         self.batch = torch.cat((simple, complex_train)), torch.zeros(1)
 
     def __iter__(self):

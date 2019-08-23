@@ -87,6 +87,7 @@ def loss(sender_input, _message, _receiver_input, receiver_output, _labels, part
     return loss, {'acc': acc}
 
 def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
+    """
     to_add = {}
     for i,p in enumerate(partition):
         to_add[i]=[]
@@ -115,7 +116,8 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
     acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
     loss = F.cross_entropy(receiver_output, new_input.argmax(dim=1), reduction="none")
     return loss, {'acc': acc}
-
+    """
+    pass
 
 def dump(game, partition, test, device, gs_mode):
     # tiny "dataset"
@@ -206,7 +208,7 @@ def main(params):
     validation_loader = UniformLoader(dimensions, torch.FloatTensor(train))
 
     if opts.sender_cell == 'transformer':
-        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_embedding)
+        sender = Sender(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.sender_embedding)
         sender = core.TransformerSenderReinforce(agent=sender, vocab_size=opts.vocab_size,
                                                  embed_dim=opts.sender_embedding, max_len=opts.max_len,
                                                  num_layers=opts.sender_num_layers, num_heads=opts.sender_num_heads,
@@ -215,27 +217,27 @@ def main(params):
                                                  generate_style=opts.sender_generate_style,
                                                  causal=opts.causal_sender)
     else:
-        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_hidden)
+        sender = Sender(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.sender_hidden)
 
         sender = core.RnnSenderReinforce(sender,
                                    opts.vocab_size, opts.sender_embedding, opts.sender_hidden,
                                    cell=opts.sender_cell, max_len=opts.max_len, num_layers=opts.sender_num_layers,
                                    force_eos=force_eos)
     if opts.receiver_cell == 'transformer':
-        #receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_embedding)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding, partition=[x+1 for x in dimensions])
+        receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding)
+        #receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding, partition=[x+1 for x in dimensions])
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
     else:
-        #receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden, partition=[x+1 for x in dimensions])
+        receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden)
+        #receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden, partition=[x+1 for x in dimensions])
 
         receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
                                              opts.receiver_hidden, cell=opts.receiver_cell,
                                              num_layers=opts.receiver_num_layers)
 
-    game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
+    game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost)
 
