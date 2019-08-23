@@ -170,9 +170,6 @@ class Trainer:
             if self.should_stop:
                 break
 
-            if epoch == 10:
-                import pdb; pdb.set_trace()
-
         for callback in self.callbacks:
             callback.on_train_end()
 
