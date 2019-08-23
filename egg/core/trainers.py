@@ -113,8 +113,10 @@ class Trainer:
         self.game.eval()
         with torch.no_grad():
             for batch in self.validation_data:
+                #print('eval')
+                #print(batch)
                 batch = move_to(batch, self.device)
-                optimized_loss, rest = self.game(*batch, partition=self.dimensions)
+                optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions], Print=False)
                 mean_loss += optimized_loss
                 mean_rest = _add_dicts(mean_rest, rest)
                 n_batches += 1
@@ -129,13 +131,16 @@ class Trainer:
         n_batches = 0
         self.game.train()
         for batch in self.train_data:
+            #print('train')
+            #print(batch)
             self.optimizer.zero_grad()
             batch = move_to(batch, self.device)
 
-            optimized_loss, rest = self.game(*batch, partition=self.dimensions)
+            optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions])
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             self.optimizer.step()
+            #print([p for p in self.game.sender.parameters()][1])
 
             n_batches += 1
             mean_loss += optimized_loss

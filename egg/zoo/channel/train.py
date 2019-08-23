@@ -12,6 +12,7 @@ import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.channel.features import OneHotLoader, UniformLoader
 from egg.zoo.channel.archs import Sender, Receiver
+from egg.core.callbacks import Callback, ConsoleLogger
 
 
 def get_params(params):
@@ -79,7 +80,7 @@ def get_params(params):
     return args
 
 
-def loss(sender_input, _message, _receiver_input, receiver_output, _labels):
+def loss(sender_input, _message, _receiver_input, receiver_output, _labels, partition=None):
     acc = (receiver_output.argmax(dim=1) == sender_input.argmax(dim=1)).detach().float()
     loss = F.cross_entropy(receiver_output, sender_input.argmax(dim=1), reduction="none")
     return loss, {'acc': acc}
@@ -180,8 +181,7 @@ def main(params):
     early_stopper = EarlyStopperAccuracy(opts.early_stopping_thr)
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=test_loader, epoch_callback=callback,
-                           early_stopping=early_stopper, distribution=probs)
+                           validation_data=test_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=True, as_json=True)])
 
     trainer.train(n_epochs=opts.n_epochs)
     if opts.checkpoint_dir:

@@ -6,6 +6,7 @@
 import torch.nn as nn
 import torch
 from torch.distributions import Bernoulli
+from torch.nn import functional as F
 
 
 class Receiver(nn.Module):
@@ -28,7 +29,7 @@ class CompoReceiver(nn.Module):
         start = 0
         outputs = []
         for p in self.partition:
-            outputs.append(x[:, start:(start+p)].softmax())
+            outputs.append(F.softmax(x[:, start:(start+p)], 1))
             start += p
         return torch.cat(outputs,1)
 
