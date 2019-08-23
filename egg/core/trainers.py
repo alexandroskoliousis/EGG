@@ -42,7 +42,7 @@ class Trainer:
             validation_data: Optional[DataLoader] = None,
             device: torch.device = None,
             callbacks: Optional[List[Callback]] = None,
-            distribution: list = None
+            dimensions: list = None
     ):
         """
         :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),
@@ -69,7 +69,7 @@ class Trainer:
         self.should_stop = False
         self.start_epoch = 0  # Can be overwritten by checkpoint loader
         self.callbacks = callbacks
-        self.distribution = distribution
+        self.dimensions = dimensions
 
         self.epoch = 0
 
@@ -114,7 +114,7 @@ class Trainer:
         with torch.no_grad():
             for batch in self.validation_data:
                 batch = move_to(batch, self.device)
-                optimized_loss, rest = self.game(*batch, input_distribution=self.distribution)
+                optimized_loss, rest = self.game(*batch, partition=self.dimensions)
                 mean_loss += optimized_loss
                 mean_rest = _add_dicts(mean_rest, rest)
                 n_batches += 1
@@ -131,7 +131,8 @@ class Trainer:
         for batch in self.train_data:
             self.optimizer.zero_grad()
             batch = move_to(batch, self.device)
-            optimized_loss, rest = self.game(*batch)
+
+            optimized_loss, rest = self.game(*batch, partition=self.dimensions)
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             self.optimizer.step()

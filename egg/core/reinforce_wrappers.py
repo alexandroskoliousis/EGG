@@ -366,16 +366,15 @@ class SenderReceiverRnnReinforce(nn.Module):
         self.receiver_entropy_coeff = receiver_entropy_coeff
         self.loss = loss
         self.length_cost = length_cost
-
         self.mean_baseline = defaultdict(float)
         self.n_points = defaultdict(float)
 
-    def forward(self, sender_input, labels, receiver_input=None, input_distribution=None):
+    def forward(self, sender_input, labels, receiver_input=None, partition=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
         message_lengths = find_lengths(message)
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
 
-        loss, rest = self.loss(sender_input, message, receiver_input, receiver_output, labels)
+        loss, rest = self.loss(sender_input, message, receiver_input, receiver_output, labels, partition)
 
         # the entropy of the outputs of S before and including the eos symbol - as we don't care about what's after
         effective_entropy_s = torch.zeros_like(entropy_r)
@@ -415,13 +414,14 @@ class SenderReceiverRnnReinforce(nn.Module):
         rest['receiver_entropy'] = entropy_r.mean().item()
         rest['original_loss'] = loss.mean().item()
         rest['mean_length'] = message_lengths.float().mean().item()
-
+        """
         if not (input_distribution is None):
             positions = sender_input.max(1).indices
             mean = 0
             for i,message_length in enumerate(message_lengths):
                 mean+=message_length.float().item() * input_distribution[positions[i]]
             rest['weighted_length'] = mean
+        """
 
         return optimized_loss, rest
 

@@ -15,7 +15,8 @@ import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.compositionalEncoding.features import SimpleLoader, CompositionalLoader, \
                                                     ConcatLoader, UniformLoader, Split_Train_Test
-from egg.zoo.compositionalEncoding.archs import Sender, Receiver
+from egg.zoo.compositionalEncoding.archs import Sender, Receiver, CompoReceiver
+from egg.core.callbacks import Callback, ConsoleLogger
 
 
 def get_params(params):
@@ -79,38 +80,71 @@ def get_params(params):
     return args
 
 
-def loss(sender_input, _message, _receiver_input, receiver_output, _labels):
-    acc = (receiver_output.argmax(dim=1) == sender_input.argmax(dim=1)).detach().float()
-    loss = F.cross_entropy(receiver_output, sender_input.argmax(dim=1), reduction="none")
+def loss(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
+    acc = ((receiver_output > 0.5).long() == sender_input.long()).detach().all(dim=1).float().mean()
+    loss = F.binary_cross_entropy(receiver_output, sender_input.float(), reduction="none").mean(dim=1)
+
+    return loss, {'acc': acc}
+
+def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
+    to_add = {}
+    for i,p in enumerate(partition):
+        to_add[i]=[]
+
+    for sender_inp in sender_input:
+        start = 0
+        for i, p in enumerate(partition):
+            if sender_inp[start:(start+p)].sum().item()==1:
+                to_add[i].append(0)
+            elif sender_inp[start:(start+p)].sum().item()==0:
+                to_add[i].append(1)
+            else:
+                print('whaaaaaat???')
+            start += p
+
+    new_input = torch.FloatTensor(0).to(sender_input.device)
+    accs = []
+    start = 0
+    for i, p in enumerate(partition):
+        tmp = torch.FloatTensor(to_add[i]).unsqueeze(1).to(sender_input.device)
+        new_input = torch.cat((new_input, tmp), 1)
+        new_input = torch.cat((new_input, sender_input[:, start:(start+p)]), 1)
+        accs.append((new_input.argmax(dim=1) == receiver_output[:, start:(start+p)].argmax(dim=1)).detach().float().unsqueeze(1))
+        start += p
+
+    acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
+    loss = F.cross_entropy(receiver_output, new_input.argmax(dim=1), reduction="none")
     return loss, {'acc': acc}
 
 
-def dump(game, n_features, device, gs_mode):
+def dump(game, partition, test, device, gs_mode):
     # tiny "dataset"
-    dataset = [[torch.eye(n_features).to(device), None]]
+    dataset = [[torch.FloatTensor(test).to(device), None]]
 
     sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
         core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, variable_length=True)
 
     unif_acc = 0.
-    powerlaw_acc = 0.
-    powerlaw_probs = 1 / np.arange(1, n_features+1, dtype=np.float32)
-    powerlaw_probs /= powerlaw_probs.sum()
 
     for sender_input, message, receiver_output in zip(sender_inputs, messages, receiver_outputs):
-        input_symbol = sender_input.argmax()
-        output_symbol = receiver_output.argmax()
-        acc = (input_symbol == output_symbol).float().item()
+        start = 0
+        boolean = []
+        output_symbols = []
+        input_symbols = []
+        for p in partition:
+            input_symbol = sender_input[start:(start+p)].argmax()
+            input_symbols.append(input_symbol.item())
+            output_symbol = receiver_output[start:(start+p)].argmax()
+            output_symbols.append(output_symbol.item())
+            boolean.append( (input_symbol==output_symbol).float().item() )
+            start += p
+        unif_acc += int(sum(boolean)==len(partition))
 
-        unif_acc += acc
-        powerlaw_acc += powerlaw_probs[input_symbol] * acc
-        print(f'input: {input_symbol.item()} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbol.item()}', flush=True)
+        print(f'input: {input_symbols} -> message: {",".join([str(x.item()) for x in message])} -> output: {output_symbols}', flush=True)
+    unif_acc /= len(test)
 
-    unif_acc /= n_features
-
-    print(f'Mean accuracy wrt uniform distribution is {unif_acc}')
-    print(f'Mean accuracy wrt powerlaw distribution is {powerlaw_acc}')
-    print(json.dumps({'powerlaw': powerlaw_acc, 'unif': unif_acc}))
+    print(f'Mean accuracy wrt uniform distribution on test set is {unif_acc}')
+    print(json.dumps({'unif': unif_acc}))
 
 
 def main(params):
@@ -188,30 +222,35 @@ def main(params):
                                    cell=opts.sender_cell, max_len=opts.max_len, num_layers=opts.sender_num_layers,
                                    force_eos=force_eos)
     if opts.receiver_cell == 'transformer':
-        receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_embedding)
+        #receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_embedding)
+        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding, partition=[x+1 for x in dimensions])
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
     else:
-        receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
+        #receiver = Receiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
+        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden, partition=[x+1 for x in dimensions])
+
         receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
                                              opts.receiver_hidden, cell=opts.receiver_cell,
                                              num_layers=opts.receiver_num_layers)
 
-    game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+    game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
                                            length_cost=opts.length_cost)
 
     optimizer = core.build_optimizer(game.parameters())
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr)], distribution=probs)
+                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=False, as_json=True)], dimensions=dimensions)
 
-    #trainer.train(n_epochs=opts.n_epochs)
+    trainer.train(n_epochs=opts.n_epochs)
+    """
     if opts.checkpoint_dir:
         trainer.save_checkpoint(name=f'{opts.name}_vocab{opts.vocab_size}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
+    """
 
-    #dump(trainer.game, opts.n_features, device, False) TODO: redo it
+    dump(trainer.game, dimensions, test, device, False)
     core.close()
 
 
