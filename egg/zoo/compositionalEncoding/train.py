@@ -99,12 +99,10 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 
     acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
     loss = torch.cat(losses,0).mean(0)
-    #import pdb; pdb.set_trace()
     return loss, {'acc': acc}
 
 def dump(game, partition, train, test, device, gs_mode):
     # tiny "dataset"
-    #import pdb; pdb.set_trace()
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
         #toto = [[0,1,0,1,0,0], [0,0,1,1,0,0], [1,0,0,0,1,0], [1,0,0,0,0,1]]
@@ -212,14 +210,13 @@ def main(params):
                                    force_eos=force_eos)
     if opts.receiver_cell == 'transformer':
         #receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding, partition=[x+1 for x in dimensions])
+        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding)
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
     else:
         #receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden, partition=[x+1 for x in dimensions])
-
+        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden)
         receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
                                              opts.receiver_hidden, cell=opts.receiver_cell,
                                              num_layers=opts.receiver_num_layers)

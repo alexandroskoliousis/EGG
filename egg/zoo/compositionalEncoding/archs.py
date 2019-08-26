@@ -22,16 +22,19 @@ class CompoReceiver(nn.Module):
     def __init__(self, n_features, n_hidden, partition):
         super(CompoReceiver, self).__init__()
         self.fc1 = nn.Linear(n_hidden, n_features)
-        self.partition = partition
+        #self.partition = partition
 
     def forward(self, x, _input):
         x = self.fc1(x)
+        """
         start = 0
         outputs = []
         for p in self.partition:
             outputs.append(F.softmax(x[:, start:(start+p)], 1))
             start += p
         return torch.cat(outputs,1)
+        """
+        return x
 
 
 class Sender(nn.Module):

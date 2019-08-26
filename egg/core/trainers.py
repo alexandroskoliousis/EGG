@@ -71,8 +71,6 @@ class Trainer:
         self.callbacks = callbacks
         self.dimensions = dimensions
 
-        self.epoch = 0
-
         if common_opts.load_from_checkpoint is not None:
             print(f"# Initializing model, trainer, and optimizer from {common_opts.load_from_checkpoint}")
             self.load_from_checkpoint(common_opts.load_from_checkpoint)
@@ -114,7 +112,7 @@ class Trainer:
         with torch.no_grad():
             for batch in self.validation_data:
                 batch = move_to(batch, self.device)
-                optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions], Print=False)
+                optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions])
                 mean_loss += optimized_loss
                 mean_rest = _add_dicts(mean_rest, rest)
                 n_batches += 1
@@ -133,7 +131,6 @@ class Trainer:
             #print(batch)
             self.optimizer.zero_grad()
             batch = move_to(batch, self.device)
-
             optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions])
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
