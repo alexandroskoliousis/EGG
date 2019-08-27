@@ -8,22 +8,23 @@ import argparse
 import numpy as np
 import random
 import itertools
+import os
 import torch.utils.data
 import torch.nn.functional as F
 
 import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.compositionalEncoding.features import SimpleLoader, CompositionalLoader, \
-                                                    ConcatLoader, UniformLoader, Split_Train_Test
+                                                    ConcatLoader, UniformLoader
 from egg.zoo.compositionalEncoding.archs import Sender, Receiver, CompoReceiver
-from egg.core.callbacks import Callback, ConsoleLogger
+from egg.core.callbacks import Callback, ConsoleLogger, CheckpointSaver
 
 
 def get_params(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dimensions', type=str, default='[10, 10, 10]',
                         help='Dimensionality of the "concept" space (default: [10,10,10])')
-    parser.add_argument('--dataset_path', type=str, default='/private/home/rchaabouni/EGG_public/egg/zoo/compositionalEncoding/datasets',
+    parser.add_argument('--dataset_path', type=str, default='/private/home/rchaabouni/EGG_public/egg/zoo/compositionalEncoding/datasets/',
                         help='Path to find the train/test dataset')
     parser.add_argument('--batches_per_epoch', type=int, default=1000,
                         help='Number of batches per epoch (default: 1000)')
@@ -220,10 +221,11 @@ def main(params):
                            validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=True, as_json=True)], dimensions=dimensions)
 
     trainer.train(n_epochs=opts.n_epochs)
-    """
+
     if opts.checkpoint_dir:
-        trainer.save_checkpoint(name=f'{opts.name}_vocab{opts.vocab_size}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
-    """
+        checkpointer = CheckpointSaver(checkpoint_path=opts.checkpoint_dir)
+        checkpointer.on_train_begin(trainer)
+        checkpointer.save_checkpoint(filename=f'{opts.name}_dim{chars}vocab{opts.vocab_size}_probs{opts.probs}_type{opts.complex_gram}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
     dump(trainer.game, [x+1 for x in dimensions], train, test, device, False)
     core.close()
