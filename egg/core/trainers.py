@@ -80,11 +80,13 @@ class Trainer:
             d = self._get_preemptive_checkpoint_dir(common_opts.checkpoint_dir)
             self.checkpoint_path = d
             self.load_from_latest(d)
-            checkpointer = CheckpointSaver(self.checkpoint_path)
-            self.callbacks.append(checkpointer)
         else:
             self.checkpoint_path = None if common_opts.checkpoint_dir is None \
                 else pathlib.Path(common_opts.checkpoint_dir)
+
+        if self.checkpoint_path:
+            checkpointer = CheckpointSaver(self.checkpoint_path)
+            self.callbacks.append(checkpointer)
 
         if self.callbacks is None:
             self.callbacks = [
