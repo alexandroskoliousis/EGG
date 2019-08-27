@@ -21,12 +21,12 @@ from egg.core.callbacks import Callback, ConsoleLogger
 
 def get_params(params):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dimensions', type=str, default='[8]',
-                        help='Dimensionality of the "concept" space (default: 10)')
+    parser.add_argument('--dimensions', type=str, default='[10, 10, 10]',
+                        help='Dimensionality of the "concept" space (default: [10,10,10])')
+    parser.add_argument('--dataset_path', type=str, default='/private/home/rchaabouni/EGG_public/egg/zoo/compositionalEncoding/datasets',
+                        help='Path to find the train/test dataset')
     parser.add_argument('--batches_per_epoch', type=int, default=1000,
                         help='Number of batches per epoch (default: 1000)')
-    parser.add_argument('--dim_dataset', type=int, default=10240,
-                        help='Dim of constructing the data (default: 10240)')
     parser.add_argument('--force_eos', type=int, default=0,
                         help='Force EOS at the end of the messages (default: 0)')
 
@@ -133,7 +133,6 @@ def dump(game, partition, train, test, device, gs_mode):
         print(f'Mean accuracy wrt uniform distribution on test set is {unif_acc}')
         print(json.dumps({'unif': unif_acc}))
 
-
 def main(params):
     opts = get_params(params)
     print(opts, flush=True)
@@ -142,48 +141,38 @@ def main(params):
     force_eos = opts.force_eos == 1
     dimensions = eval(opts.dimensions)
 
-    probs = []
+    chars = ''
+    for dim in dimensions:
+        chars+=str(dim)+'_'
+
+    simple_path = opts.dataset_path+chars+'simple_dataset'
+    compositional_path = opts.dataset_path+chars+'complex_dataset'
+
+    if not(os.path.exists(simple_path)) or not(os.path.exists(compositional_path)):
+        print('create the right dataset or give the correct path')
+        sys.exit("Error message")
+
+    simple_dataset = torch.load(opts.dataset_path+chars+'simple_dataset')
+    compositional_dataset = torch.load(opts.dataset_path+chars+'complex_dataset')
+
     if opts.probs == 'uniform':
-        for dim in dimensions:
-            probs_nonnorm = np.ones(dim)
-            probs.append(probs_nonnorm/probs_nonnorm.sum())
+        probs = simple_dataset['uniform']
+        comp_proba = compositional_dataset['train']['uni_base']
     elif opts.probs == 'powerlaw':
-        for dim in dimensions:
-            probs_nonnorm = 1 / np.arange(1, dim+1, dtype=np.float32)
-            probs.append(probs_nonnorm/probs_nonnorm.sum())
-    else:
-        print('Not supported feature')
-        sys.exit("Error message")
-
-    #print('the probs are: ', probs, flush=True)
-    if opts.complex_gram=='surface':
-        nbr_complex = 1
-        for dim in dimensions:
-            nbr_complex *= dim
-        if opts.probs == 'uniform':
-            probs_nonnorm = np.ones(nbr_complex)
-            complex_probs = probs_nonnorm/probs_nonnorm.sum()
+        probs = simple_dataset['powerlaw']
+        if opts.complex_gram=='surface':
+            comp_proba = compositional_dataset['train']['pow_surface']
+        elif opts.complex_gram=='base':
+            comp_proba = compositional_dataset['train']['pow_base']
         else:
-            probs_nonnorm = 1 / np.arange(1, nbr_complex+1, dtype=np.float32)
-            complex_probs = probs_nonnorm/probs_nonnorm.sum()
-
-    elif opts.complex_gram=='base':
-        complex_probs_nonnorm = []
-        combinations_prob = itertools.product(*probs)
-        for p in combinations_prob:
-            mult = 1
-            for t_p in p:
-                mult*=t_p
-            complex_probs_nonnorm.append(mult)
-        complex_probs = complex_probs_nonnorm/sum(complex_probs_nonnorm)
-
+            print('Not supported complex_gram')
+            sys.exit("Error message")
     else:
-        print('Not supported complex_gram')
+        print('Not supported probs')
         sys.exit("Error message")
 
-    (train, new_comp_proba), test = Split_Train_Test(dimensions, probs, complex_probs, ratio=0.9)
-    comp_proba = new_comp_proba/sum(new_comp_proba)
-
+    train = compositional_dataset['train']['referent']
+    test = compositional_dataset['test']['referent']
     # Simple referents
     sl_loader = SimpleLoader(dimensions, opts.batches_per_epoch, int(round(opts.batch_size/(2.*len(dimensions)))), probs)
     # Complex referent

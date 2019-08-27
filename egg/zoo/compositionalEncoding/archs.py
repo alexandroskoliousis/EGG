@@ -19,7 +19,8 @@ class Receiver(nn.Module):
         return x.sigmoid()
 
 class CompoReceiver(nn.Module):
-    def __init__(self, n_features, n_hidden, partition):
+    def __init__(self, n_features, n_hidden):
+    #def __init__(self, n_features, n_hidden, partition):
         super(CompoReceiver, self).__init__()
         self.fc1 = nn.Linear(n_hidden, n_features)
         #self.partition = partition
