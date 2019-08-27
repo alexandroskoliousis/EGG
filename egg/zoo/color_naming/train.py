@@ -64,7 +64,7 @@ def dump(game, loader, device, gs_mode='gs'):
         out = output.argmax(dim=0)
         acc = inp==out
         unif_acc+=acc
-        print(f'input: {inp.item()} -> message: {message[0]} -> output: {out.item()}', flush=True)
+        print(f'input: {inp.item()} -> message: {message.argmax().item()} -> output: {out.item()}', flush=True)
 
     print(f'acc={unif_acc/dataset.size(0)}')
 
