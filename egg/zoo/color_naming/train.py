@@ -84,7 +84,7 @@ def cross_entropy(sender_input, _message, _receiver_input, receiver_output, _lab
     return loss, {'acc': acc}
 
 def dump(game, loader, device, gs_mode='gs'):
-    game.eval()
+    #game.eval()
     with torch.no_grad():
         dataset = [x for x in loader][0][0].to(device)
         messages = game.sender(dataset)

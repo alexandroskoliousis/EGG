@@ -183,7 +183,7 @@ def dump_sender_receiver(game: torch.nn.Module,
     :return:
     """
     train_state = game.training  # persist so we restore it back
-    game.eval()
+    #game.eval()
 
     device = device if device is not None else common_opts.device
 
@@ -289,4 +289,3 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
     lengths.add_(1).clamp_(max=max_k)
 
     return lengths
-

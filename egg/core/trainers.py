@@ -106,7 +106,7 @@ class Trainer:
         mean_rest = {}
 
         n_batches = 0
-        self.game.eval()
+        #self.game.eval()
         with torch.no_grad():
             for batch in self.validation_data:
                 batch = move_to(batch, self.device)
