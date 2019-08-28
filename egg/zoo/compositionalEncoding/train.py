@@ -218,7 +218,7 @@ def main(params):
     optimizer = core.build_optimizer(game.parameters())
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=True, as_json=True)], dimensions=dimensions)
+                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=False, as_json=True)], dimensions=dimensions)
 
     trainer.train(n_epochs=opts.n_epochs)
 

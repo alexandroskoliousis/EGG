@@ -289,4 +289,3 @@ def find_lengths(messages: torch.Tensor) -> torch.Tensor:
     lengths.add_(1).clamp_(max=max_k)
 
     return lengths
-
