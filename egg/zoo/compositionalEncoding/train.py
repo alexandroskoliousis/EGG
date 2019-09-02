@@ -145,7 +145,7 @@ def main(params):
     chars = ''
     for dim in dimensions:
         chars+=str(dim)+'_'
-
+    # Just tmp
     simple_path = opts.dataset_path+chars+'simple_dataset'
     compositional_path = opts.dataset_path+chars+'complex_dataset'
 
@@ -159,6 +159,7 @@ def main(params):
     if opts.probs == 'uniform':
         probs = simple_dataset['uniform']
         comp_proba = compositional_dataset['train']['uni_base']
+
     elif opts.probs == 'powerlaw':
         probs = simple_dataset['powerlaw']
         if opts.complex_gram=='surface':
@@ -168,9 +169,6 @@ def main(params):
         else:
             print('Not supported complex_gram')
             sys.exit("Error message")
-    else:
-        print('Not supported probs')
-        sys.exit("Error message")
 
     train = compositional_dataset['train']['referent']
     test = compositional_dataset['test']['referent']
@@ -181,6 +179,46 @@ def main(params):
 
     train_loader = ConcatLoader(sl_loader, cl_loader)
     validation_loader = UniformLoader(dimensions, torch.FloatTensor(train))
+    # End tmp
+
+    """
+    if opts.probs == 'uniform':
+        path = opts.dataset_path+chars+'uniform_dataset'
+        if not(os.path.exists(path)):
+            print('create the right dataset or give the correct path')
+            sys.exit("Error message")
+
+    elif opts.probs == 'powerlaw':
+        if opts.complex_gram=='surface':
+            path = opts.dataset_path+chars+'holistic_dataset'
+            if not(os.path.exists(path)):
+                print('create the right dataset or give the correct path')
+                sys.exit("Error message")
+        elif opts.complex_gram=='base':
+            path = opts.dataset_path+chars+'compositional_dataset'
+            if not(os.path.exists(path)):
+                print('create the right dataset or give the correct path')
+                sys.exit("Error message")
+        else:
+            print('Not supported complex_gram')
+            sys.exit("Error message")
+    else:
+        print('Not supported probs')
+        sys.exit("Error message")
+
+
+    dataset = torch.load(path)
+    train = dataset['train']
+    test = dataset['test']['Referent']
+    # Simple referents
+    sl_loader = SimpleLoader(dimensions, opts.batches_per_epoch, int(round(opts.batch_size/(2.*len(dimensions)))), train['unig']['Surface'])
+    # Complex referent
+    cl_loader = CompositionalLoader(train['trig']['Referent'], opts.batches_per_epoch, int(round(opts.batch_size/2.)), train['trig']['Surface'])
+
+    train_loader = ConcatLoader(sl_loader, cl_loader)
+    validation_loader = UniformLoader(dimensions, torch.FloatTensor(train['trig']['Referent']))
+    """
+
 
     if opts.sender_cell == 'transformer':
         sender = Sender(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.sender_embedding)
