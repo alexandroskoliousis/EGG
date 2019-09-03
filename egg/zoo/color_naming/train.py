@@ -22,10 +22,6 @@ N_COLOR_IDS = 330
 
 def get_params(params):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sender_hidden', type=int, default=10,
-                        help='Size of the hidden layer of Sender (default: 10)')
-    parser.add_argument('--receiver_hidden', type=int, default=10,
-                        help='Size of the hidden layer of Receiver (default: 10)')
     parser.add_argument('--temperature', type=float, default=1.0,
                         help="GS temperature for the sender (default: 1.0)")
     parser.add_argument('--scaler', type=int, default=100)
