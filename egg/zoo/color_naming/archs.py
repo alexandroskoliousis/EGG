@@ -11,14 +11,14 @@ import torch.nn.functional as F
 class Sender(nn.Module):
     def __init__(self, n_colors, vocab_size):
         super(Sender, self).__init__()
-        self.emb = nn.Embedding(n_colors, vocab_size)
-        #self.fc = nn.Linear(vocab_size, vocab_size)
+        self.emb = nn.Embedding(n_colors, 5)
+        self.fc = nn.Linear(5, vocab_size)
 
     def forward(self, x):
         x = x[:, 0:1] # only color-id at the moment
         x = self.emb(x)
-        #x = F.leaky_relu(x)
-        #x = self.fc(x)
+        x = F.leaky_relu(x)
+        x = self.fc(x)
         return x.log_softmax(dim=-1)
 
 
