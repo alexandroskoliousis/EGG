@@ -102,7 +102,7 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
     loss = torch.cat(losses,0).mean(0)
     return loss, {'acc': acc}
 
-def dump(game, partition, train, test, device, gs_mode):
+def dump(game, partition, test, device, gs_mode):
     # tiny "dataset"
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
@@ -145,6 +145,7 @@ def main(params):
     chars = ''
     for dim in dimensions:
         chars+=str(dim)+'_'
+    """
     # Just tmp
     simple_path = opts.dataset_path+chars+'simple_dataset'
     compositional_path = opts.dataset_path+chars+'complex_dataset'
@@ -182,6 +183,8 @@ def main(params):
     # End tmp
 
     """
+
+    # Just tmp
     if opts.probs == 'uniform':
         path = opts.dataset_path+chars+'uniform_dataset'
         if not(os.path.exists(path)):
@@ -206,7 +209,6 @@ def main(params):
         print('Not supported probs')
         sys.exit("Error message")
 
-
     dataset = torch.load(path)
     train = dataset['train']
     test = dataset['test']['Referent']
@@ -217,7 +219,7 @@ def main(params):
 
     train_loader = ConcatLoader(sl_loader, cl_loader)
     validation_loader = UniformLoader(dimensions, torch.FloatTensor(train['trig']['Referent']))
-    """
+    # End tmp
 
 
     if opts.sender_cell == 'transformer':
@@ -265,7 +267,7 @@ def main(params):
         checkpointer.on_train_begin(trainer)
         checkpointer.save_checkpoint(filename=f'{opts.name}_dim{chars}vocab{opts.vocab_size}_probs{opts.probs}_type{opts.complex_gram}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
-    dump(trainer.game, [x+1 for x in dimensions], train, test, device, False)
+    dump(trainer.game, [x+1 for x in dimensions], test, device, False)
     core.close()
 
 
