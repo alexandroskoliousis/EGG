@@ -40,9 +40,9 @@ def get_params(params):
                         help='Number hidden layers of receiver. Only in reinforce (default: 1)')
     parser.add_argument('--sender_num_layers', type=int, default=1,
                         help='Number hidden layers of receiver. Only in reinforce (default: 1)')
-    parser.add_argument('--receiver_num_heads', type=int, default=8,
+    parser.add_argument('--receiver_num_heads', type=int, default=1,
                         help='Number of attention heads for Transformer Receiver (default: 8)')
-    parser.add_argument('--sender_num_heads', type=int, default=8,
+    parser.add_argument('--sender_num_heads', type=int, default=1,
                         help='Number of self-attention heads for Transformer Sender (default: 8)')
     parser.add_argument('--sender_embedding', type=int, default=10,
                         help='Dimensionality of the embedding hidden layer for Sender (default: 10)')
