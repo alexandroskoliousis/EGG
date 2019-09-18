@@ -181,7 +181,7 @@ def main(params):
     early_stopper = EarlyStopperAccuracy(opts.early_stopping_thr)
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=test_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=True, as_json=True)])
+                           validation_data=test_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=False, as_json=True)])
 
     trainer.train(n_epochs=opts.n_epochs)
     if opts.checkpoint_dir:
