@@ -28,7 +28,6 @@ def _div_dict(d, n):
         result[k] /= n
     return result
 
-
 class Trainer:
     """
     Implements the training logic. Some common configuration (checkpointing frequency, path, validation frequency)

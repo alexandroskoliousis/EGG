@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import RelaxedOneHotCategorical
-
+import numpy as np
 
 class GumbelSoftmaxWrapper(nn.Module):
     """
@@ -80,6 +80,7 @@ class SymbolGameGS(nn.Module):
 
     def forward(self, sender_input, labels, receiver_input=None):
         message = self.sender(sender_input)
+
         receiver_output = self.receiver(message, receiver_input)
 
         loss, rest_info = self.loss(sender_input, message, receiver_input, receiver_output, labels)
