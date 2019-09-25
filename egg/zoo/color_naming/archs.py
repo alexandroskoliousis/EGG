@@ -16,7 +16,7 @@ class Sender(nn.Module):
         self.emb = nn.Embedding(n_colors, vocab_size)
 
     def forward(self, x):
-        x = x[:, 0:1] # only color-id at the moment
+        x = x[:, 0:1].long() # only color-id at the moment
         x = self.emb(x)
         #x  = torch.sigmoid(x)
         #x = F.leaky_relu(x)
