@@ -81,36 +81,6 @@ class CylinderL1Loss(nn.Module):
 
         return expectation, {'acc': acc, 'Hm': H_m, 'I_m_inp': I_m_inp, 'I_m_out': I_m_out}
 
-class CrippledLoss(nn.Module):
-    def __init__(self, distance_matrix, division):
-        super().__init__()
-        self.distance_matrix = distance_matrix
-        self.division = division
-
-    def forward(self, sender_input, _message, _receiver_input, receiver_output, _labels):
-        receiver_output = receiver_output.softmax(dim=-1)
-        color_ids = sender_input[:, 0]
-        distances = self.distance_matrix[color_ids].unsqueeze(1)
-        torch.max(distances)
-        cost = torch.zeros((N_COLOR_IDS, N_COLOR_IDS))
-        for i in range(N_COLOR_IDS):
-            for j in range(N_COLOR_IDS):
-                interval = [k/self.division for k in range(int(self.division)+1)]
-                cost[i][j]= findposition(distances[i][j], interval)/(self.division-1)
-        import pdb; pdb.set_trace()
-
-        expectation = torch.bmm(distances, receiver_output.unsqueeze(-1)).squeeze()
-        acc = (receiver_output.argmax(dim=1)== color_ids).float()
-        # Compute H(messages) and I(messages, inputs) and I(messages, outputs)
-        H_m = compute_Entropy(_message)
-        messages = []
-        for m in _message:
-            messages.append(m.argmax().detach().item())
-        I_m_inp = compute_MI(messages, color_ids.detach().tolist())
-        I_m_out = compute_MI(messages, receiver_output.detach().argmax(dim=1).tolist())
-
-        return expectation, {'acc': acc, 'Hm': H_m, 'I_m_inp': I_m_inp, 'I_m_out': I_m_out}
-
 def cross_entropy(sender_input, _message, _receiver_input, receiver_output, _labels):
     receiver_output = receiver_output.squeeze(1)
     sender_input = sender_input[:, 0]
@@ -142,8 +112,11 @@ def main(params):
         ColorData(scaler=opts.scaler), batch_size=opts.batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(
         ColorData(), batch_size=N_COLOR_IDS, shuffle=False)
+    if opts.division==0.0:
+        distance_matrix = build_distance_matrix(test_loader.dataset)
+    else:
+        distance_matrix = clipped_distance_matrix(test_loader.dataset, opts.division)
 
-    distance_matrix = build_distance_matrix(test_loader.dataset)
     distance_matrix = torch.from_numpy(distance_matrix).cuda().float()
 
     # initialize the agents and the game
@@ -152,7 +125,6 @@ def main(params):
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=N_COLOR_IDS)
 
     loss = CylinderL1Loss(distance_matrix)
-    #loss = CrippledLoss(distance_matrix, opts.division)
 
 
     if opts.mode == 'gs':

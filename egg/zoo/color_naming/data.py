@@ -10,11 +10,11 @@ import torch.utils.data as data
 
 def findposition(value, alist):
     if value==alist[0]:
-        return(0)
+        return 0
 
     for i, element in enumerate(alist):
         if value > element and value <= alist[i+1]:
-            return(i+1)
+            return i
 
 def build_distance_matrix(dataset):
     n = len(dataset.data)
@@ -34,7 +34,7 @@ def build_distance_matrix(dataset):
 
             distance_matrix[i, j] = dist
             distance_matrix[j, i] = dist
-    return distance_matrix
+    return distance_matrix/np.max(distance_matrix)
 
 def build_distance_matrix_old(dataset):
     n = len(dataset.data)
@@ -58,16 +58,13 @@ def build_distance_matrix_old(dataset):
 
 def clipped_distance_matrix(dataset, division):
     distance_matrix = build_distance_matrix(dataset)
-    distance_matrix = distance_matrix/np.max(distance_matrix)
-
     n = len(dataset.data)
     clipped_matrix = np.zeros((n, n))
     interval = [k/division for k in range(int(division)+1)]
     for i in range(n):
         for j in range(i):
-            clipped_matrix[i,j] = findposition(distance_matrix[i,j], interval)/division
+            clipped_matrix[i,j] = findposition(distance_matrix[i,j], interval)/(division-1)
             clipped_matrix[j,i] = clipped_matrix[i,j]
-
     return clipped_matrix
 
 
