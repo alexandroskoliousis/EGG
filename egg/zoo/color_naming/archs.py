@@ -8,18 +8,35 @@ import egg.core as core
 import torch.nn.functional as F
 
 
+class Sender2(nn.Module):
+    def __init__(self, n_colors, vocab_size):
+        super(Sender, self).__init__()
+        self.emb = nn.Embedding(n_colors, 100)
+        self.fc1 = nn.Linear(100, 1000)
+        self.fc2 = nn.Linear(1000, vocab_size)
+        #self.emb = nn.Embedding(n_colors, vocab_size)
+
+    def forward(self, x):
+        x = x[:, 0:1].long() # only color-id at the moment
+        x = self.emb(x)
+        #x = F.leaky_relu(x)
+        #x = torch.sigmoid(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x.log_softmax(dim=-1)
+
 class Sender(nn.Module):
     def __init__(self, n_colors, vocab_size):
         super(Sender, self).__init__()
-        #self.emb = nn.Embedding(n_colors, 5)
-        #self.fc = nn.Linear(5, vocab_size)
+        #self.emb = nn.Embedding(n_colors, 100)
+        #self.fc = nn.Linear(100, vocab_size)
         self.emb = nn.Embedding(n_colors, vocab_size)
 
     def forward(self, x):
         x = x[:, 0:1].long() # only color-id at the moment
         x = self.emb(x)
-        #x  = torch.sigmoid(x)
         #x = F.leaky_relu(x)
+        #x = torch.sigmoid(x)
         #x = self.fc(x)
         return x.log_softmax(dim=-1)
 

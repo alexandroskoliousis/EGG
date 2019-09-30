@@ -14,9 +14,9 @@ import numpy as np
 from sklearn.metrics import mutual_info_score
 
 import egg.core as core
+from egg.core import EarlyStopperLoss
 from egg.zoo.color_naming.data import ColorData, build_distance_matrix, clipped_distance_matrix
 from egg.zoo.color_naming.archs import Sender, Receiver
-
 
 N_COLOR_IDS = 330
 
@@ -27,8 +27,12 @@ def get_params(params):
     parser.add_argument('--scaler', type=int, default=100)
     parser.add_argument('--mode', type=str, choices=['gs', 'rf'], default='rf')
     parser.add_argument('--sender_entropy_coeff', type=float, default=5e-2)
-    parser.add_argument('--division', type=float, default=10.0,
-                        help="how do we clipp the loss function (default: 10.0)" )
+    parser.add_argument('--division', type=float, default=0.0,
+                        help="how do we clipp the loss function (default: 0.0)" )
+    parser.add_argument('--early_stopping_delta', type=float, default=1e-10,
+                        help="Early stopping delta on loss (default: 1e-5)")
+    parser.add_argument('--early_stopping_patience', type=int, default=100,
+                        help="Early stopping patience on loss (default: 10)")
 
     args = core.init(arg_parser=parser, params=params)
     return args
@@ -97,7 +101,7 @@ def dump(game, loader, device, gs_mode='gs'):
 
         unif_acc = 0.0
         for (input_sender,message, output) in zip(dataset, messages, receiver_outputs):
-            inp = input_sender[0]
+            inp = input_sender[0].long()
             out = output.argmax(dim=0)
             acc = inp==out
             unif_acc+=acc.item()
@@ -139,8 +143,10 @@ def main(params):
     optimizer = core.build_optimizer(game.parameters())
 
     callbacks = [
+        EarlyStopperLoss(delta=opts.early_stopping_delta, patience=opts.early_stopping_patience),
         core.ConsoleLogger(print_train_loss=False, as_json=True),
     ]
+
 
     # initialize and launch the trainer
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=test_loader, callbacks=callbacks)

@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Dict, Any, List, Tuple
+import numpy as np
 
 from .callbacks import Callback
 
@@ -49,3 +50,37 @@ class EarlyStopperAccuracy(BaseEarlyStopper):
     def should_stop(self) -> bool:
         assert self.trainer.validation_data is not None, 'Validation data must be provided for early stooping to work'
         return self.validation_stats[-1][1][self.field_name] > self.threshold
+
+
+class EarlyStopperLoss(BaseEarlyStopper):
+    """
+    Implements early stopping logic that stops training when a validation loss does not
+    improve for a given patience parameter.
+    """
+    def __init__(self, delta: float, patience: int = 99999) -> None:
+        """
+        :param threshold: early stopping threshold for the validation set accuracy
+            (assumes that the loss function returns the accuracy under name `field_name`)
+        :param field_name: the name of the metric return by loss function which should be evaluated against stopping
+            criterion (default: "acc")
+        """
+        super(EarlyStopperLoss, self).__init__()
+        self.patience = patience
+        self.counter = 0
+        self.best_score = None
+        self.val_loss_min = np.Inf
+        self.delta = delta
+
+    def should_stop(self) -> bool:
+        assert self.trainer.validation_data is not None, 'Validation data must be provided for early stooping to work'
+        score = -self.validation_stats[-1][0]
+        if self.best_score is None:
+            self.best_score = score
+        elif score < (self.best_score - self.delta):
+            self.counter+=1
+            if self.counter >= self.patience:
+                return True
+        else:
+            self.best_score = score
+            self.counter = 0
+        return False
