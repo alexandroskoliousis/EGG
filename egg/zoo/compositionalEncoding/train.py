@@ -31,6 +31,8 @@ def get_params(params):
                         help='Number of batches per epoch (default: 1000)')
     parser.add_argument('--force_eos', type=int, default=0,
                         help='Force EOS at the end of the messages (default: 0)')
+    parser.add_argument('--exist_eos', type=int, default=1,
+                        help='Is there a notion of eos in training (default: 0)')
 
     parser.add_argument('--sender_hidden', type=int, default=10,
                         help='Size of the hidden layer of Sender (default: 10)')
@@ -141,70 +143,16 @@ def main(params):
     device = opts.device
 
     force_eos = opts.force_eos == 1
+    exist_eos = opts.exist_eos == 1
     dimensions = eval(opts.dimensions)
 
     chars = ''
     for dim in dimensions:
         chars+=str(dim)+'_'
-    """
-    # Just tmp
-    simple_path = opts.dataset_path+chars+'simple_dataset'
-    compositional_path = opts.dataset_path+chars+'complex_dataset'
-
-    if not(os.path.exists(simple_path)) or not(os.path.exists(compositional_path)):
-        print('create the right dataset or give the correct path')
-        sys.exit("Error message")
-
-    simple_dataset = torch.load(opts.dataset_path+chars+'simple_dataset')
-    compositional_dataset = torch.load(opts.dataset_path+chars+'complex_dataset')
-
     if opts.probs == 'uniform':
-        probs = simple_dataset['uniform']
-        comp_proba = compositional_dataset['train']['uni_base']
-
-    elif opts.probs == 'powerlaw':
-        probs = simple_dataset['powerlaw']
-        if opts.complex_gram=='surface':
-            comp_proba = compositional_dataset['train']['pow_surface']
-        elif opts.complex_gram=='base':
-            comp_proba = compositional_dataset['train']['pow_base']
-        else:
-            print('Not supported complex_gram')
-            sys.exit("Error message")
-
-    train = compositional_dataset['train']['referent']
-    test = compositional_dataset['test']['referent']
-    # Simple referents
-    sl_loader = SimpleLoader(dimensions, opts.batches_per_epoch, int(round(opts.batch_size/(2.*len(dimensions)))), probs)
-    # Complex referent
-    cl_loader = CompositionalLoader(train, opts.batches_per_epoch, int(round(opts.batch_size/2.)), comp_proba)
-
-    train_loader = ConcatLoader(sl_loader, cl_loader)
-    validation_loader = UniformLoader(dimensions, torch.FloatTensor(train))
-    # End tmp
-
-    """
-
-    # Just tmp
-    if opts.probs == 'uniform':
-        path = opts.dataset_path+chars+'uniform_dataset'
+        path = opts.dataset_path
         if not(os.path.exists(path)):
             print('create the right dataset or give the correct path')
-            sys.exit("Error message")
-
-    elif opts.probs == 'powerlaw':
-        if opts.complex_gram=='surface':
-            path = opts.dataset_path+chars+'holistic_dataset'
-            if not(os.path.exists(path)):
-                print('create the right dataset or give the correct path')
-                sys.exit("Error message")
-        elif opts.complex_gram=='base':
-            path = opts.dataset_path+chars+'compositional_dataset'
-            if not(os.path.exists(path)):
-                print('create the right dataset or give the correct path')
-                sys.exit("Error message")
-        else:
-            print('Not supported complex_gram')
             sys.exit("Error message")
     else:
         print('Not supported probs')
@@ -212,19 +160,17 @@ def main(params):
 
     dataset = torch.load(path)
     train = dataset['train']
-    test = dataset['test']['Referent']
-    # Simple referents
-    sl_loader = SimpleLoader(dimensions, opts.batches_per_epoch, int(round(opts.batch_size/(2.*len(dimensions)))), train['unig']['Surface'])
+    test = dataset['test']
+
+    probs_nonnorm = np.ones(len(train))
+    prob_uni = probs_nonnorm/probs_nonnorm.sum()
+
     # Complex referent
-    cl_loader = CompositionalLoader(train['trig']['Referent'], opts.batches_per_epoch, int(round(opts.batch_size/2.)), train['trig']['Surface'])
-
-    train_loader = ConcatLoader(sl_loader, cl_loader)
-    validation_loader = UniformLoader(dimensions, torch.FloatTensor(train['trig']['Referent']))
-    # End tmp
-
+    train_loader = CompositionalLoader(train, opts.batches_per_epoch, opts.batch_size, prob_uni)
+    validation_loader = UniformLoader(torch.FloatTensor(train))
 
     if opts.sender_cell == 'transformer':
-        sender = Sender(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.sender_embedding)
+        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_embedding)
         sender = core.TransformerSenderReinforce(agent=sender, vocab_size=opts.vocab_size,
                                                  embed_dim=opts.sender_embedding, max_len=opts.max_len,
                                                  num_layers=opts.sender_num_layers, num_heads=opts.sender_num_heads,
@@ -233,33 +179,31 @@ def main(params):
                                                  generate_style=opts.sender_generate_style,
                                                  causal=opts.causal_sender)
     else:
-        sender = Sender(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.sender_hidden)
+        sender = Sender(n_features=sum(dimensions), n_hidden=opts.sender_hidden)
 
         sender = core.RnnSenderReinforce(sender,
                                    opts.vocab_size, opts.sender_embedding, opts.sender_hidden,
                                    cell=opts.sender_cell, max_len=opts.max_len, num_layers=opts.sender_num_layers,
                                    force_eos=force_eos)
     if opts.receiver_cell == 'transformer':
-        #receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_embedding)
+        receiver = CompoReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_embedding)
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
     else:
-        #receiver = Receiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden)
-        receiver = CompoReceiver(n_features=sum([x+1 for x in dimensions]), n_hidden=opts.receiver_hidden)
+        receiver = CompoReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
         receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
                                              opts.receiver_hidden, cell=opts.receiver_cell,
                                              num_layers=opts.receiver_num_layers)
 
     game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
                                            receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost)
+                                           length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
 
     optimizer = core.build_optimizer(game.parameters())
 
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader,
-                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=False, as_json=True)], dimensions=dimensions)
+                           validation_data=validation_loader, callbacks=[EarlyStopperAccuracy(opts.early_stopping_thr), ConsoleLogger(print_train_loss=False, as_json=True)])
 
     trainer.train(n_epochs=opts.n_epochs)
 
@@ -268,7 +212,7 @@ def main(params):
         checkpointer.on_train_begin(trainer)
         checkpointer.save_checkpoint(filename=f'{opts.name}_dim{chars}vocab{opts.vocab_size}_probs{opts.probs}_type{opts.complex_gram}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
-    dump(trainer.game, [x+1 for x in dimensions], test, device, False)
+    dump(trainer.game, dimensions, test, device, False)
     core.close()
 
 

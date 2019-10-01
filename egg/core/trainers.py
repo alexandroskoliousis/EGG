@@ -40,8 +40,7 @@ class Trainer:
             train_data: DataLoader,
             validation_data: Optional[DataLoader] = None,
             device: torch.device = None,
-            callbacks: Optional[List[Callback]] = None,
-            dimensions: list = None
+            callbacks: Optional[List[Callback]] = None
     ):
         """
         :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),
@@ -68,7 +67,6 @@ class Trainer:
         self.should_stop = False
         self.start_epoch = 0  # Can be overwritten by checkpoint loader
         self.callbacks = callbacks
-        self.dimensions = dimensions
 
         if common_opts.load_from_checkpoint is not None:
             print(f"# Initializing model, trainer, and optimizer from {common_opts.load_from_checkpoint}")
@@ -117,10 +115,7 @@ class Trainer:
         with torch.no_grad():
             for batch in self.validation_data:
                 batch = move_to(batch, self.device)
-                if self.dimensions:
-                    optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions])
-                else:
-                    optimized_loss, rest = self.game(*batch)
+                optimized_loss, rest = self.game(*batch)
                 mean_loss += optimized_loss
                 mean_rest = _add_dicts(mean_rest, rest)
                 n_batches += 1
@@ -139,10 +134,7 @@ class Trainer:
             #print(batch)
             self.optimizer.zero_grad()
             batch = move_to(batch, self.device)
-            if self.dimensions:
-                optimized_loss, rest = self.game(*batch, partition=[x+1 for x in self.dimensions])
-            else:
-                optimized_loss, rest = self.game(*batch)
+            optimized_loss, rest = self.game(*batch)
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             self.optimizer.step()

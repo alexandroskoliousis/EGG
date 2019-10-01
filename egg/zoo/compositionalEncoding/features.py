@@ -88,7 +88,7 @@ class _CompoHotIterator:
         # Sample with respect to a given proba
         all_batch = random.choices(self.referents, weights=self.probs, k=self.batch_size)
         self.batches_generated += 1
-        return torch.FloatTensor(all_batch)#, torch.zeros(1)
+        return torch.FloatTensor(all_batch), torch.zeros(1)
 
 class CompositionalLoader(torch.utils.data.DataLoader):
     def __init__(self, possible_referents, batches_per_epoch, batch_size, probs, seed=None):
@@ -140,6 +140,13 @@ class ConcatLoader(torch.utils.data.DataLoader):
         return _ConcatIterator(self.loader1, self.loader2, seed=seed)
 
 class UniformLoader(torch.utils.data.DataLoader):
+    def __init__(self, complex_train):
+        self.batch = complex_train, torch.zeros(1)
+
+    def __iter__(self):
+        return iter([self.batch])
+
+class UniformLoader_old(torch.utils.data.DataLoader):
     def __init__(self, dimensions, complex_train):
 
         simple = torch.Tensor()

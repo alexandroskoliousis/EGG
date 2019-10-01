@@ -341,7 +341,7 @@ class SenderReceiverRnnReinforce(nn.Module):
     5.0
     """
     def __init__(self, sender, receiver, loss, sender_entropy_coeff, receiver_entropy_coeff,
-                 length_cost=0.0):
+                 length_cost=0.0, dimensions=None, exist_eos=True):
         """
         :param sender: sender agent
         :param receiver: receiver agent
@@ -368,13 +368,16 @@ class SenderReceiverRnnReinforce(nn.Module):
         self.length_cost = length_cost
         self.mean_baseline = defaultdict(float)
         self.n_points = defaultdict(float)
+        self.dimensions = dimensions
+        self.exist_eos = exist_eos
 
-    def forward(self, sender_input, labels, receiver_input=None, partition=None):
+    def forward(self, sender_input, labels, exist_eos=True, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
         message_lengths = find_lengths(message)
+
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
 
-        loss, rest = self.loss(sender_input, message, receiver_input, receiver_output, labels, partition)
+        loss, rest = self.loss(sender_input, message, receiver_input, receiver_output, labels, partition=self.dimensions)
 
         # the entropy of the outputs of S before and including the eos symbol - as we don't care about what's after
         effective_entropy_s = torch.zeros_like(entropy_r)
