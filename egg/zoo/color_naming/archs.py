@@ -28,16 +28,16 @@ class Sender2(nn.Module):
 class Sender(nn.Module):
     def __init__(self, n_colors, vocab_size):
         super(Sender, self).__init__()
-        #self.emb = nn.Embedding(n_colors, 100)
-        #self.fc = nn.Linear(100, vocab_size)
-        self.emb = nn.Embedding(n_colors, vocab_size)
+        self.emb = nn.Embedding(n_colors, 100)
+        self.fc = nn.Linear(100, vocab_size)
+        #self.emb = nn.Embedding(n_colors, vocab_size)
 
     def forward(self, x):
         x = x[:, 0:1].long() # only color-id at the moment
         x = self.emb(x)
-        #x = F.leaky_relu(x)
+        x = F.leaky_relu(x)
         #x = torch.sigmoid(x)
-        #x = self.fc(x)
+        x = self.fc(x)
         return x.log_softmax(dim=-1)
 
 
