@@ -231,21 +231,22 @@ def dump_sender_receiver(game: torch.nn.Module,
                 # set to 0.
 
                 for i in range(message.size(0)):
-                    eos_positions = (message[i, :] == 0).nonzero()
-                    message_end = eos_positions[0].item() if eos_positions.size(0) > 0 else -1
-                    assert message_end == -1 or message[i, message_end] == 0
-                    if message_end < 0:
-                        messages.append(message[i, :])
+                    if exist_eos:
+                        eos_positions = (message[i, :] == 0).nonzero()
+                        message_end = eos_positions[0].item() if eos_positions.size(0) > 0 else -1
+                        assert message_end == -1 or message[i, message_end] == 0
+                        if message_end < 0:
+                            messages.append(message[i, :])
+                        else:
+                            messages.append(message[i, :message_end + 1])
                     else:
-                        messages.append(message[i, :message_end + 1])
-
+                        messages.append(message[i, :])
                     if gs:
                         receiver_outputs.append(output[i, message_end, ...])
                     else:
                         receiver_outputs.append(output[i, ...])
 
     game.train(mode=train_state)
-
     return sender_inputs, messages, receiver_inputs, receiver_outputs, labels
 
 

@@ -111,7 +111,7 @@ class Trainer:
         mean_rest = {}
 
         n_batches = 0
-        #self.game.eval()
+        self.game.eval()
         with torch.no_grad():
             for batch in self.validation_data:
                 batch = move_to(batch, self.device)
@@ -119,6 +119,7 @@ class Trainer:
                 mean_loss += optimized_loss
                 mean_rest = _add_dicts(mean_rest, rest)
                 n_batches += 1
+
         mean_loss /= n_batches
         mean_rest = _div_dict(mean_rest, n_batches)
 

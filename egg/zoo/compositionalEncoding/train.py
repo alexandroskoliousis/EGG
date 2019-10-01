@@ -76,8 +76,8 @@ def get_params(params):
                              "penalized by this cost (default: 0.0)")
     parser.add_argument('--name', type=str, default='model',
                         help="Name for your checkpoint (default: model)")
-    parser.add_argument('--early_stopping_thr', type=float, default=0.9999,
-                        help="Early stopping threshold on accuracy (default: 0.9999)")
+    parser.add_argument('--early_stopping_thr', type=float, default=0.99,
+                        help="Early stopping threshold on accuracy (default: 0.99)")
 
     args = core.init(parser, params)
 
@@ -103,6 +103,7 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 
     acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
     loss = torch.cat(losses,0).mean(0)
+
     return loss, {'acc': acc}
 
 def dump(game, partition, test, device, gs_mode, exist_eos):
