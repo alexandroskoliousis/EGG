@@ -105,7 +105,7 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
     loss = torch.cat(losses,0).mean(0)
     return loss, {'acc': acc}
 
-def dump(game, partition, test, device, gs_mode):
+def dump(game, partition, test, device, gs_mode, exist_eos):
     # tiny "dataset"
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
@@ -113,7 +113,8 @@ def dump(game, partition, test, device, gs_mode):
         #train.extend(toto)
         #dataset = [[torch.FloatTensor(train).to(device), None]]
         sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
-            core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, variable_length=True)
+            core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, \
+            variable_length=True, exist_eos=exist_eos)
 
         unif_acc = 0.
 
@@ -212,7 +213,7 @@ def main(params):
         checkpointer.on_train_begin(trainer)
         checkpointer.save_checkpoint(filename=f'{opts.name}_dim{chars}vocab{opts.vocab_size}_probs{opts.probs}_type{opts.complex_gram}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
-    dump(trainer.game, dimensions, test, device, False)
+    dump(trainer.game, dimensions, test, device, False, exist_eos=exist_eos)
     core.close()
 
 

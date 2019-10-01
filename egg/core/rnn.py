@@ -11,7 +11,7 @@ from .util import find_lengths
 
 
 class RnnEncoder(nn.Module):
-    """Feeds a sequence into an RNN (vanilla RNN, GRU, LSTM) cell and returns a vector representation 
+    """Feeds a sequence into an RNN (vanilla RNN, GRU, LSTM) cell and returns a vector representation
     of it, which is found as the last hidden state of the last RNN layer. Assumes that the eos token has the id equal to 0.
     """
 
@@ -21,7 +21,7 @@ class RnnEncoder(nn.Module):
             vocab_size {int} -- The size of the input vocabulary (including eos)
             embed_dim {int} -- Dimensionality of the embeddings
             n_hidden {int} -- Dimensionality of the cell's hidden state
-        
+
         Keyword Arguments:
             cell {str} -- Type of the cell ('rnn', 'gru', or 'lstm') (default: {'rnn'})
             num_layers {int} -- Number of the stacked RNN layers (default: {1})

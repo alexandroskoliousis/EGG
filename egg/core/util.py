@@ -172,7 +172,8 @@ def _set_seed(seed) -> None:
 def dump_sender_receiver(game: torch.nn.Module,
                          dataset: 'torch.utils.data.DataLoader',
                          gs: bool, variable_length: bool,
-                         device: Optional[torch.device] = None):
+                         device: Optional[torch.device] = None,
+                         exist_eos: bool = True):
     """
     A tool to dump the interaction between Sender and Receiver
     :param game: A Game instance
@@ -183,7 +184,7 @@ def dump_sender_receiver(game: torch.nn.Module,
     :return:
     """
     train_state = game.training  # persist so we restore it back
-    #game.eval()
+    game.eval()
 
     device = device if device is not None else common_opts.device
 
@@ -197,12 +198,15 @@ def dump_sender_receiver(game: torch.nn.Module,
             receiver_input = None if len(batch) == 2 else move_to(batch[2], device)
 
             message = game.sender(sender_input)
-
             # Under GS, the only output is a message; under Reinforce, two additional tensors are returned.
             # We don't need them.
             if not gs: message = message[0]
+            if exist_eos:
+                lengths = find_lengths(message)
+            else:
+                lengths = torch.LongTensor([game.sender.max_len]*message.size(0)).to(sender_input.device)
 
-            output = game.receiver(message, receiver_input)
+            output = game.receiver(message, input=receiver_input, lengths=lengths)
             if not gs: output = output[0]
 
             if batch[1] is not None:

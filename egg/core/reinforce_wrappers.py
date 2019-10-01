@@ -298,7 +298,7 @@ class RnnReceiverDeterministic(nn.Module):
         self.encoder = RnnEncoder(vocab_size, embed_dim, hidden_size, cell, num_layers)
 
     def forward(self, message, input=None, lengths=None):
-        encoded = self.encoder(message)
+        encoded = self.encoder(message, lengths)
         agent_output = self.agent(encoded, input)
 
         logits = torch.zeros(agent_output.size(0)).to(agent_output.device)
@@ -373,7 +373,10 @@ class SenderReceiverRnnReinforce(nn.Module):
 
     def forward(self, sender_input, labels, exist_eos=True, receiver_input=None):
         message, log_prob_s, entropy_s = self.sender(sender_input)
-        message_lengths = find_lengths(message)
+        if self.exist_eos:
+            message_lengths = find_lengths(message)
+        else:
+            message_lengths = torch.LongTensor([self.sender.max_len]*message.size(0)).to(sender_input.device)
 
         receiver_output, log_prob_r, entropy_r = self.receiver(message, receiver_input, message_lengths)
 
