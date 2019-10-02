@@ -17,7 +17,7 @@ import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.compositionalEncoding.features import SimpleLoader, CompositionalLoader, \
                                                     ConcatLoader, UniformLoader
-from egg.zoo.compositionalEncoding.archs import Sender, Receiver, CompoReceiver
+from egg.zoo.compositionalEncoding.archs import Sender, Receiver, CompoReceiver, ReinforcedReceiver
 from egg.core.callbacks import Callback, ConsoleLogger, CheckpointSaver
 
 
@@ -78,7 +78,9 @@ def get_params(params):
                         help="Name for your checkpoint (default: model)")
     parser.add_argument('--early_stopping_thr', type=float, default=0.99,
                         help="Early stopping threshold on accuracy (default: 0.99)")
-
+    parser.add_argument('--mode', type=str, default='rf',
+                        help="Selects whether Reinforce or half reinforce {rf,"
+                             " non_diff} (default: rf)")
     args = core.init(parser, params)
 
     return args
@@ -105,6 +107,17 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
     loss = torch.cat(losses,0).mean(0)
 
     return loss, {'acc': acc}
+
+def non_diff_loss(sender_input, _message, _receiver_input, receiver_output, labels, partition=None):
+    accs = []
+    start = 0
+
+    for i, p in enumerate(partition):
+        p_input = sender_input[:, start:(start+p)]
+        p_output = receiver_output[i]
+        accs.append((p_input.argmax(dim=1) == p_output).detach().float().unsqueeze(1))
+    acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
+    return -acc, {'acc': acc.mean()}
 
 def dump(game, partition, test, device, gs_mode, exist_eos):
     # tiny "dataset"
@@ -192,15 +205,29 @@ def main(params):
         receiver = core.TransformerReceiverDeterministic(receiver, opts.vocab_size, opts.max_len,
                                                          opts.receiver_embedding, opts.receiver_num_heads, opts.receiver_hidden,
                                                          opts.receiver_num_layers, causal=opts.causal_receiver)
-    else:
-        receiver = CompoReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
-        receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
-                                             opts.receiver_hidden, cell=opts.receiver_cell,
-                                             num_layers=opts.receiver_num_layers)
 
-    game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
-                                           receiver_entropy_coeff=opts.receiver_entropy_coeff,
-                                           length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
+        game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
+                                               receiver_entropy_coeff=opts.receiver_entropy_coeff,
+                                               length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
+    else:
+        if opts.mode == 'non_diff':
+            receiver = ReinforcedReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden, partition=dimensions)
+            receiver = core.RnnReceiverReinforce(receiver, opts.vocab_size, opts.receiver_embedding,
+                                                 opts.receiver_hidden, cell=opts.receiver_cell,
+                                                 num_layers=opts.receiver_num_layers)
+
+            game = core.SenderReceiverRnnReinforce(sender, receiver, non_diff_loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+                                                   receiver_entropy_coeff=opts.receiver_entropy_coeff,
+                                                   length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
+        else:
+            receiver = CompoReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden)
+            receiver = core.RnnReceiverDeterministic(receiver, opts.vocab_size, opts.receiver_embedding,
+                                                 opts.receiver_hidden, cell=opts.receiver_cell,
+                                                 num_layers=opts.receiver_num_layers)
+
+            game = core.SenderReceiverRnnReinforce(sender, receiver, compoloss, sender_entropy_coeff=opts.sender_entropy_coeff,
+                                                   receiver_entropy_coeff=opts.receiver_entropy_coeff,
+                                                   length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
 
     optimizer = core.build_optimizer(game.parameters())
 
