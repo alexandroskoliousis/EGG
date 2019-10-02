@@ -139,7 +139,14 @@ class Trainer:
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             self.optimizer.step()
+            """
             #print([p for p in self.game.sender.parameters()][1])
+            for name, param in self.game.named_parameters():
+                if param.requires_grad:
+                    print(name)
+                    if len(param.grad)>0:
+                        print(param.grad[0])
+            """
 
             n_batches += 1
             mean_loss += optimized_loss

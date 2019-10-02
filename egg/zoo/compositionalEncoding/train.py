@@ -91,7 +91,7 @@ def loss(sender_input, _message, _receiver_input, receiver_output, _labels, part
     loss = F.binary_cross_entropy(receiver_output, sender_input.float(), reduction="none").mean(dim=1)
     return loss, {'acc': acc}
 
-def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
+def compoloss2(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
     accs = []
     losses = []
     start = 0
@@ -105,7 +105,22 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 
     acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
     loss = torch.cat(losses,0).mean(0)
+    return loss, {'acc': acc}
 
+def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels, partition):
+    accs = []
+    losses = []
+    start = 0
+
+    for i, p in enumerate(partition):
+        p_input = sender_input[:, start:(start+p)]
+        p_output = receiver_output[:, start:(start+p)]
+        accs.append((p_input.argmax(dim=1) == p_output.argmax(dim=1)).detach().float().unsqueeze(1))
+        losses.append(F.cross_entropy(p_output, p_input.argmax(dim=1), reduction="none").unsqueeze(0))
+        start += p
+
+    acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
+    loss = torch.cat(losses,0).max(0).values
     return loss, {'acc': acc}
 
 def non_diff_loss(sender_input, _message, _receiver_input, receiver_output, labels, partition=None):
