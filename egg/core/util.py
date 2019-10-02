@@ -229,7 +229,6 @@ def dump_sender_receiver(game: torch.nn.Module,
                 # A trickier part is to handle EOS in the messages. It also might happen that not every message has EOS.
                 # We cut messages at EOS if it is present or return the entire message otherwise. Note, EOS id is always
                 # set to 0.
-
                 for i in range(message.size(0)):
                     if exist_eos:
                         eos_positions = (message[i, :] == 0).nonzero()
@@ -245,6 +244,7 @@ def dump_sender_receiver(game: torch.nn.Module,
                         receiver_outputs.append(output[i, message_end, ...])
                     else:
                         receiver_outputs.append(output[i, ...])
+
 
     game.train(mode=train_state)
     return sender_inputs, messages, receiver_inputs, receiver_outputs, labels

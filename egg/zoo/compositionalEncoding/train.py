@@ -111,16 +111,16 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 def non_diff_loss(sender_input, _message, _receiver_input, receiver_output, labels, partition=None):
     accs = []
     start = 0
-
     for i, p in enumerate(partition):
         p_input = sender_input[:, start:(start+p)]
-        p_output = receiver_output[i]
+        p_output = receiver_output[:, i]
         accs.append((p_input.argmax(dim=1) == p_output).detach().float().unsqueeze(1))
+        start += p
+
     acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float()
-    import pdb; pdb.set_trace()
     return -acc, {'acc': acc.mean()}
 
-def dump(game, partition, test, device, gs_mode, exist_eos):
+def dump(game, partition, test, device, gs_mode, exist_eos, mode='rf'):
     # tiny "dataset"
     if len(test)>0:
         dataset = [[torch.FloatTensor(test).to(device), None]]
@@ -130,19 +130,22 @@ def dump(game, partition, test, device, gs_mode, exist_eos):
         sender_inputs, messages, receiver_inputs, receiver_outputs, _ = \
             core.dump_sender_receiver(game, dataset, gs=gs_mode, device=device, \
             variable_length=True, exist_eos=exist_eos)
-
         unif_acc = 0.
-
         for sender_input, message, receiver_output in zip(sender_inputs, messages, receiver_outputs):
             start = 0
             boolean = []
             output_symbols = []
             input_symbols = []
-            for p in partition:
+            for i, p in enumerate(partition):
                 input_symbol = sender_input[start:(start+p)].argmax()
                 input_symbols.append(input_symbol.item())
-                output_symbol = receiver_output[start:(start+p)].argmax()
+
+                if mode=='rf':
+                    output_symbol = receiver_output[start:(start+p)].argmax()
+                elif mode=='non_diff':
+                    output_symbol = receiver_output[i]
                 output_symbols.append(output_symbol.item())
+                #import pdb; pdb.set_trace()
                 boolean.append( (input_symbol==output_symbol).float().item() )
                 start += p
             unif_acc += int(sum(boolean)==len(partition))
@@ -242,7 +245,7 @@ def main(params):
         checkpointer.on_train_begin(trainer)
         checkpointer.save_checkpoint(filename=f'{opts.name}_dim{chars}vocab{opts.vocab_size}_probs{opts.probs}_type{opts.complex_gram}_rs{opts.random_seed}_lr{opts.lr}_shid{opts.sender_hidden}_rhid{opts.receiver_hidden}_sentr{opts.sender_entropy_coeff}_reg{opts.length_cost}_max_len{opts.max_len}')
 
-    dump(trainer.game, dimensions, test, device, False, exist_eos=exist_eos)
+    dump(trainer.game, dimensions, test, device, False, exist_eos=exist_eos, mode=opts.mode)
     core.close()
 
 

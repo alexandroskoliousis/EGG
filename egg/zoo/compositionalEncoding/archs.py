@@ -64,8 +64,7 @@ class ReinforcedReceiver(nn.Module):
             log_probs.append(log_prob)
             entropies.append(entropy)
             start += p
-
-        return torch.cat([x.unsqueeze(0) for x in samples],0), torch.cat([x.unsqueeze(1) for x in log_probs],1).mean(1), torch.cat([x.unsqueeze(1) for x in entropies],1).mean(1)
+        return torch.cat([x.unsqueeze(1) for x in samples],1), torch.cat([x.unsqueeze(1) for x in log_probs],1).mean(1), torch.cat([x.unsqueeze(1) for x in entropies],1).mean(1)
 
 
 class Sender(nn.Module):
