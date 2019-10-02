@@ -116,7 +116,7 @@ def non_diff_loss(sender_input, _message, _receiver_input, receiver_output, labe
         p_input = sender_input[:, start:(start+p)]
         p_output = receiver_output[i]
         accs.append((p_input.argmax(dim=1) == p_output).detach().float().unsqueeze(1))
-    acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float().mean()
+    acc = (torch.sum(torch.cat(accs,1),1)==len(partition)).detach().float()
     return -acc, {'acc': acc.mean()}
 
 def dump(game, partition, test, device, gs_mode, exist_eos):
