@@ -76,8 +76,8 @@ def get_params(params):
                              "penalized by this cost (default: 0.0)")
     parser.add_argument('--name', type=str, default='model',
                         help="Name for your checkpoint (default: model)")
-    parser.add_argument('--early_stopping_thr', type=float, default=0.99,
-                        help="Early stopping threshold on accuracy (default: 0.99)")
+    parser.add_argument('--early_stopping_thr', type=float, default=0.9999,
+                        help="Early stopping threshold on accuracy (default: 0.9999)")
     parser.add_argument('--mode', type=str, default='rf',
                         help="Selects whether Reinforce or half reinforce {rf,"
                              " non_diff} (default: rf)")
@@ -214,6 +214,7 @@ def main(params):
                                                length_cost=opts.length_cost, dimensions=dimensions, exist_eos=exist_eos)
     else:
         if opts.mode == 'non_diff':
+            print('what')
             receiver = ReinforcedReceiver(n_features=sum(dimensions), n_hidden=opts.receiver_hidden, partition=dimensions)
             receiver = core.RnnReceiverReinforce(receiver, opts.vocab_size, opts.receiver_embedding,
                                                  opts.receiver_hidden, cell=opts.receiver_cell,
