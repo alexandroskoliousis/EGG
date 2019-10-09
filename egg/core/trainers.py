@@ -140,7 +140,7 @@ class Trainer:
             optimized_loss.backward()
             self.optimizer.step()
             """
-            #print([p for p in self.game.sender.parameters()][1])
+            print([p for p in self.game.sender.parameters()][0])
             for name, param in self.game.named_parameters():
                 if param.requires_grad:
                     print(name)

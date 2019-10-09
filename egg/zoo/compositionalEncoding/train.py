@@ -25,7 +25,7 @@ def get_params(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dimensions', type=str, default='[10, 10, 10]',
                         help='Dimensionality of the "concept" space (default: [10,10,10])')
-    parser.add_argument('--dataset_path', type=str, default='/private/home/rchaabouni/EGG_public/egg/zoo/compositionalEncoding/datasets/',
+    parser.add_argument('--dataset_path', type=str, default='/private/home/rchaabouni/EGG_public/egg/zoo/compositionalEncoding/dataset/unif_100_100_1',
                         help='Path to find the train/test dataset')
     parser.add_argument('--batches_per_epoch', type=int, default=1000,
                         help='Number of batches per epoch (default: 1000)')
