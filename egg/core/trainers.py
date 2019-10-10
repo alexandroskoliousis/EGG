@@ -139,15 +139,7 @@ class Trainer:
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             self.optimizer.step()
-            print('sender')
-            print([p for p in self.game.sender.parameters()][0])
-            print([p for p in self.game.sender.parameters()][1])
-            print('receiver')
-            print([p for p in self.game.receiver.parameters()][0])
-            print([p for p in self.game.receiver.parameters()][1])
-
             """
-
             for name, param in self.game.named_parameters():
                 if param.requires_grad:
                     print(name)

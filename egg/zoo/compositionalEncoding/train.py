@@ -98,6 +98,7 @@ def compoloss(sender_input, _message, _receiver_input, receiver_output, _labels,
 
     for i, p in enumerate(partition):
         p_input = sender_input[:, start:(start+p)]
+        #p_output = F.softmax(receiver_output[:, start:(start+p)], 1)
         p_output = receiver_output[:, start:(start+p)]
         accs.append((p_input.argmax(dim=1) == p_output.argmax(dim=1)).detach().float().unsqueeze(1))
         losses.append(F.cross_entropy(p_output, p_input.argmax(dim=1), reduction="none").unsqueeze(0))
