@@ -21,9 +21,8 @@ def findposition(value, alist):
 def build_distance_matrix(dataset):
     n = len(dataset.data)
     distance_matrix = np.zeros((n, n))
-
     for i in range(n):
-        for j in range(i):
+        for j in range(n):
             color_i, color_j = dataset.data[i], dataset.data[j]
             x_i, y_i, z_i = color_i[1], color_i[2], color_i[3]
             x_j, y_j, z_j = color_j[1], color_j[2], color_j[3]
@@ -34,8 +33,10 @@ def build_distance_matrix(dataset):
 
             dist = dist_x + dist_y + dist_z
 
-            distance_matrix[i, j] = dist
-            distance_matrix[j, i] = dist
+            id_i = int(color_i[0].item())
+            id_j = int(color_j[0].item())
+            distance_matrix[id_i, id_j] = dist
+            distance_matrix[id_j, id_i] = dist
 
     return distance_matrix/np.max(distance_matrix)
 

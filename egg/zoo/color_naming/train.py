@@ -93,7 +93,7 @@ def cross_entropy(sender_input, _message, _receiver_input, receiver_output, _lab
     return loss, {'acc': acc}
 
 def dump(game, loader, device, gs_mode='gs'):
-    #game.eval()
+    game.eval()
     with torch.no_grad():
         dataset = [x for x in loader][0][0].to(device)
         messages = game.sender(dataset)
@@ -125,7 +125,7 @@ def main(params):
 
     # initialize the agents and the game
     sender = Sender(N_COLOR_IDS, opts.vocab_size)  # the "data" transform part of an agent
-    receiver = Receiver()
+    receiver = Receiver(N_COLOR_IDS)
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=N_COLOR_IDS)
 
     loss = CylinderL1Loss(distance_matrix)
