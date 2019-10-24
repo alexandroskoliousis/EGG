@@ -131,7 +131,6 @@ if __name__ == "__main__":
                         seed=opts.data_seed)
 
     train_data, validation_data, test_data = data_loader.get_iterators()
-
     data_loader.upd_cl_options(opts)
 
     if opts.max_len > 1:
@@ -178,6 +177,7 @@ if __name__ == "__main__":
     callbacks = [core.ConsoleLogger(as_json=True)]
     if opts.mode.lower() == 'gs':
         callbacks.append(core.TemperatureUpdater(agent=sender, decay=0.9, minimum=0.1))
+
     trainer = core.Trainer(game=game, optimizer=optimizer,
                            train_data=train_data, validation_data=validation_data, callbacks=callbacks)
     trainer.train(n_epochs=opts.n_epochs)

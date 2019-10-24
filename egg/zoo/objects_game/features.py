@@ -65,7 +65,7 @@ class VectorsLoader:
         valid, valid_labels = data['valid'], data['valid_labels']
         test, test_labels = data['test'], data['test_labels']
 
-        # train valid and test are of shape b_size X n_distractors+1 X n_features 
+        # train valid and test are of shape b_size X n_distractors+1 X n_features
         self.train_samples = train.shape[0]
         self.validation_samples = valid.shape[0]
         self.test_samples = test.shape[0]
@@ -96,7 +96,6 @@ class VectorsLoader:
                 continue
 
         target_idxs = self.random_state.choice(self.n_distractors+1, n_samples)
-
         return (np.array(split_list), target_idxs), tuple_dict
 
     def generate_tuples(self, data):
@@ -163,4 +162,3 @@ class TupleDataset(data.Dataset):
         if idx < 0 or idx >= len(self.list_of_tuples):
             raise RuntimeError('Accessing dataset through wrong index: < 0 or >= max_len')
         return self.list_of_tuples[idx], self.target_idxs[idx]
-
