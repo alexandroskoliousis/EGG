@@ -24,11 +24,14 @@ class Receiver(nn.Module):
     def __init__(self, hidden):
         super(Receiver, self).__init__()
         self.fc = nn.Linear(3, hidden)
+        #self.fc2 = nn.Linear(hidden, 3)
+        #self.fc_message = nn.Linear(hidden, 3)
 
 
     def forward(self, x, _input):
-        import pdb; pdb.set_trace()
+        #x = self.fc_message(x)
         _input = _input[:,:,1:]  # not taking the ID but only the LAB system
         embedded_input = self.fc(_input)
+        #embedded_input = _input
         energies = torch.matmul(embedded_input, torch.unsqueeze(x, dim=-1))
         return energies.squeeze()

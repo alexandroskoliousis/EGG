@@ -140,7 +140,7 @@ def main(params):
     callbacks = [
         EarlyStopperAccuracy(opts.early_stopping_thr),
         EarlyStopperLoss(delta=opts.early_stopping_delta, patience=opts.early_stopping_patience),
-        core.ConsoleLogger(print_train_loss=False, as_json=True),
+        core.ConsoleLogger(print_train_loss=True, as_json=True),
     ]
 
 
