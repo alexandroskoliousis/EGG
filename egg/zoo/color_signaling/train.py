@@ -112,13 +112,13 @@ def main(params):
 
     data = ColorData()
     distance_matrix = build_distance_matrix(data)
-    precentile = np.percentile(distance_matrix, opts.percentile)
+    percentile = np.percentile(distance_matrix, opts.percentile)
 
     train_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
-                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=precentile, data=data)
+                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=percentile, data=data)
     # Same validation across runs by fixing the seed
     val_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=1, train=False, seed=1, \
-                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=precentile, data=data)
+                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, data=data)
 
     # initialize the agents and the game
     sender = Sender(opts.vocab_size)  # the "data" transform part of an agent
