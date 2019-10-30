@@ -27,19 +27,22 @@ def split_by_attribute_value(dataset, attribute, value):
     return with_av, without_av
 
 
-def split_train_test(dataset, p_hold_out=0):
-    assert p_hold_out >= 0
+def split_train_test(dataset, p_hold_out=0.1, random_seed=7):
+    import numpy as np
 
-    train = dataset
-    test = []
+    assert p_hold_out > 0
+    random_state = np.random.RandomState(seed=random_seed)
 
-    if p_hold_out > 0:
-        random.shuffle(train)
-        n_test = int(p_hold_out * len(train))
-        train, test = train[n_test:], train[:n_test]
+    n = len(dataset)
+    permutation = random_state.permutation(n)
 
-        assert train and test
+    n_test = int(p_hold_out * n)
 
+    test = [dataset[i] for i in permutation[:n_test]]
+    train = [dataset[i] for i in permutation[n_test:]]
+    assert train and test
+
+    assert len(train) + len(test) == len(dataset)
     return train, test
 
 
