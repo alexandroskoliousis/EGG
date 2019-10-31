@@ -222,7 +222,7 @@ def main(params):
     trainer.train(n_epochs=opts.n_epochs)
 
     dump(game, full_data_loader, opts.device, opts.n_attributes, opts.n_values)
-
+    """
     # freeze Sender and probe how fast a simple Receiver will learn the thing
     sender = Freezer(sender)
     core.get_opts().preemptable = False
@@ -260,7 +260,7 @@ def main(params):
             _set_seed(seed)
             print(json.dumps({"mode": "reset", "seed": seed, "receiver_name": name}))
             retrain_receiver(receiver_generator)
-
+    """
     core.close()
 
 if __name__ == "__main__":
