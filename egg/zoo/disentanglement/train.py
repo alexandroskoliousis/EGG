@@ -127,7 +127,7 @@ def main(params):
     holdout_a1_loader, holdout_a2_loader, uniform_holdout_loader, full_data_loader = [DataLoader(x, batch_size=opts.batch_size) for x in [holdout_a1, holdout_a2, uniform_holdout, full_data]]
 
     train_loader = DataLoader(train, batch_size=opts.batch_size)
-    validation_loader = DataLoader(validation, batch_size=opts.batch_size)
+    validation_loader = DataLoader(validation, batch_size=validation.__len__())
 
     n_dim = opts.n_attributes * opts.n_values
 
@@ -218,7 +218,7 @@ def main(params):
     trainer.train(n_epochs=opts.n_epochs)
 
     dump(game, full_data_loader, opts.device, opts.n_attributes, opts.n_values)
-   
+
     # freeze Sender and probe how fast a simple Receiver will learn the thing
     sender = Freezer(sender)
     core.get_opts().preemptable = False
@@ -247,7 +247,7 @@ def main(params):
     transformer_receiver_generator = lambda: \
         core.TransformerReceiverDeterministic(
                 Receiver(n_hidden=opts.receiver_hidden, n_outputs=n_dim),
-                opts.vocab_size + 1, opts.max_len, 
+                opts.vocab_size + 1, opts.max_len,
                 opts.receiver_hidden, num_heads=1, hidden_size=opts.receiver_hidden, num_layers=1,
                 positional_emb=True)
 
