@@ -114,9 +114,13 @@ def main(params):
     device = opts.device
     full_data = enumerate_attribute_value(opts.n_attributes, opts.n_values)
 
-    holdout_a1, rest = split_by_attribute_value(full_data, 0, 0)
-    holdout_a2, rest = split_by_attribute_value(rest, 1, 0)
-    train, uniform_holdout = split_train_test(rest, 0.1)
+    #holdout_a1, rest = split_by_attribute_value(full_data, 0, 0)
+    #holdout_a2, rest = split_by_attribute_value(rest, 1, 0)
+    #train, uniform_holdout = split_train_test(rest, 0.1)
+
+    holdout_a1, rest = split_by_attribute_value(full_data, 0, [13, 84, 76])
+    holdout_a2, rest = split_by_attribute_value(rest, 1, [25, 49])
+    train, uniform_holdout = split_train_test(rest, 0.05)
 
     apply = lambda x: list(one_hotify(x, opts.n_attributes, opts.n_values))
     holdout_a1, holdout_a2, train, uniform_holdout, full_data = list(map(apply, [holdout_a1, holdout_a2, train, uniform_holdout, full_data]))
