@@ -59,8 +59,8 @@ def get_params(params):
                         help='Size of the embeddings of Sender (default: 10)')
     parser.add_argument('--receiver_emb', type=int, default=10,
                         help='Size of the embeddings of Receiver (default: 10)')
-    parser.add_argument('--early_stopping_thr', type=float, default=0.999,
-                        help="Early stopping threshold on accuracy (defautl: 0.999)")
+    parser.add_argument('--early_stopping_thr', type=float, default=0.99999,
+                        help="Early stopping threshold on accuracy (defautl: 0.99999)")
 
 
     parser.add_argument('--d_type', default=None, choices=['pos', 'bos', None])
@@ -195,11 +195,12 @@ def main(params):
         discriminator_transfo = None
 
 
-    game = SenderReceiverRnnReinforceWithDiscriminator(
-            sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff, receiver_entropy_coeff=0.0, discriminator=discriminator, discriminator_weight=opts.d_weight,
-            discriminator_transform=discriminator_transfo)
+    #game = SenderReceiverRnnReinforceWithDiscriminator(
+    #        sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff, receiver_entropy_coeff=0.0, discriminator=discriminator, discriminator_weight=opts.d_weight,
+    #        discriminator_transform=discriminator_transfo)
 
-
+    game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+                                                   receiver_entropy_coeff=0.0, length_cost=0.0)
     optimizer = torch.optim.Adam(params, lr=opts.lr)
 
     metrics_evaluator = Metrics(full_data.examples, opts.device, opts.n_attributes, opts.n_values, opts.vocab_size + 1, freq=opts.stats_freq)
