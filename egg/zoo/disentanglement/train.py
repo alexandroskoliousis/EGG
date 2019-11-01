@@ -194,13 +194,13 @@ def main(params):
         discriminator = None
         discriminator_transfo = None
 
-
-    #game = SenderReceiverRnnReinforceWithDiscriminator(
-    #        sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff, receiver_entropy_coeff=0.0, discriminator=discriminator, discriminator_weight=opts.d_weight,
-    #        discriminator_transform=discriminator_transfo)
-
-    game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
-                                                   receiver_entropy_coeff=0.0, length_cost=0.0)
+    if discriminator:
+        game = SenderReceiverRnnReinforceWithDiscriminator(
+                sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff, receiver_entropy_coeff=0.0, discriminator=discriminator, discriminator_weight=opts.d_weight,
+                discriminator_transform=discriminator_transfo)
+    else:
+        game = core.SenderReceiverRnnReinforce(sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff,
+                                                       receiver_entropy_coeff=0.0, length_cost=0.0)
     optimizer = torch.optim.Adam(params, lr=opts.lr)
 
     metrics_evaluator = Metrics(full_data.examples, opts.device, opts.n_attributes, opts.n_values, opts.vocab_size + 1, freq=opts.stats_freq)
