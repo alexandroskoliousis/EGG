@@ -12,10 +12,15 @@ import torch.nn.functional as F
 class Sender(nn.Module):
     def __init__(self, vocab_size):
         super(Sender, self).__init__()
-        self.fc = nn.Linear(3, vocab_size) # LAB is a 3D space
+        #self.fc1 = nn.Linear(3, 500) # LAB is a 3D space
+        #self.fc2 = nn.Linear(500, vocab_size)
+        self.fc2 = nn.Linear(3, vocab_size)
 
     def forward(self, x):
         x = x[:, 1:] # not taking the ID but only the LAB system
+        #x = self.fc1(x)
+        #x = F.leaky_relu(x)
+        #x = self.fc2(x)
         x = self.fc(x)
         return x.log_softmax(dim=-1)
 

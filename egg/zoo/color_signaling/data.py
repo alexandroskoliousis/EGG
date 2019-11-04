@@ -27,11 +27,10 @@ def build_distance_matrix(dataset):
             x_i, y_i, z_i = color_i[1], color_i[2], color_i[3]
             x_j, y_j, z_j = color_j[1], color_j[2], color_j[3]
 
-            dist_x = np.abs(x_i - x_j)
-            dist_y = np.abs(y_i - y_j)
-            dist_z = np.abs(z_i - z_j)
-
-            dist = dist_x + dist_y + dist_z
+            dist_x = (x_i - x_j)**2
+            dist_y = (y_i - y_j)**2
+            dist_z = (z_i - z_j)**2
+            dist = np.sqrt(dist_x + dist_y + dist_z)
 
             id_i = int(color_i[0].item())
             id_j = int(color_j[0].item())
