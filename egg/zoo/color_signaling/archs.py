@@ -14,7 +14,7 @@ class Sender(nn.Module):
         super(Sender, self).__init__()
         #self.fc1 = nn.Linear(3, 500) # LAB is a 3D space
         #self.fc2 = nn.Linear(500, vocab_size)
-        self.fc2 = nn.Linear(3, vocab_size)
+        self.fc = nn.Linear(3, vocab_size)
 
     def forward(self, x):
         x = x[:, 1:] # not taking the ID but only the LAB system
