@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 
 
-class Sender(nn.Module):
+class Sender2(nn.Module):
     def __init__(self, vocab_size):
         super(Sender, self).__init__()
         self.fc1 = nn.Linear(3, 500) # LAB is a 3D space
@@ -23,7 +23,7 @@ class Sender(nn.Module):
         return x.log_softmax(dim=-1)
 
 
-class Receiver(nn.Module):
+class Receiver2(nn.Module):
     def __init__(self, hidden):
         super(Receiver, self).__init__()
         self.fc = nn.Linear(3, hidden)
@@ -35,9 +35,9 @@ class Receiver(nn.Module):
         energies = torch.matmul(embedded_input, torch.unsqueeze(x, dim=-1))
         return energies.squeeze()
 
-class Sender2(nn.Module):
+class Sender(nn.Module):
     def __init__(self, vocab_size, n_colors=330, ids=False):
-        super(Sender2, self).__init__()
+        super(Sender, self).__init__()
         if ids:
             self.emb = nn.Embedding(n_colors, 3)
         self.ids = ids
@@ -56,9 +56,9 @@ class Sender2(nn.Module):
         return x.log_softmax(dim=-1)
 
 
-class Receiver2(nn.Module):
+class Receiver(nn.Module):
     def __init__(self, hidden, n_colors=330, ids=False):
-        super(Receiver2, self).__init__()
+        super(Receiver, self).__init__()
         if ids:
             self.emb = nn.Embedding(n_colors, hidden)
         else:
@@ -68,7 +68,7 @@ class Receiver2(nn.Module):
 
     def forward(self, x, _input):
         if self.ids:
-            _input = _input[:, 0:1].long() # only color-id
+            _input = _input[:,:,0:1].long() # only color-id
             embedded_input = self.emb(_input)
         else:
             _input = _input[:,:,1:]  # not taking the ID but only the LAB system

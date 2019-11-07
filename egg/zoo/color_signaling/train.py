@@ -38,6 +38,9 @@ def get_params(params):
                         help='Size of the hidden layer of Receiver (default: 100)')
     parser.add_argument('--early_stopping_thr', type=float, default=0.9999,
                         help="Early stopping threshold on accuracy (default: 0.9999)")
+    parser.add_argument('--input_id', type=int, default=0,
+                        help="Give IDs as input, if 0 inputs are the CIELAB coordinate (default: 0)")
+
 
 
     args = core.init(arg_parser=parser, params=params)
@@ -109,6 +112,7 @@ def dump(game, test_data, device):
 def main(params):
     opts = get_params(params)
     device = opts.device
+    input_id = opts.input_id == 1
 
     data = ColorData()
     distance_matrix = build_distance_matrix(data)
@@ -121,8 +125,8 @@ def main(params):
                                     batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, data=data)
 
     # initialize the agents and the game
-    sender = Sender(opts.vocab_size)  # the "data" transform part of an agent
-    receiver = Receiver(opts.receiver_hidden)
+    sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=input_id)  # the "data" transform part of an agent
+    receiver = Receiver(opts.receiver_hidden, n_colors=N_COLOR_IDS, ids=input_id)
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
 
