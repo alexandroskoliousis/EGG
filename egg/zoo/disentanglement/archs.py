@@ -14,8 +14,26 @@ from collections import defaultdict
 import egg.core as core
 from torch.distributions import Categorical
 
-
 class Receiver(nn.Module):
+    def __init__(self, n_outputs, n_hidden):
+        super(Receiver, self).__init__()
+        self.fc1 = nn.Linear(n_hidden, n_outputs)
+
+    def forward(self, x, _):
+        x = self.fc1(x)
+        return x
+
+
+class Sender(nn.Module):
+    def __init__(self, n_inputs, n_hidden):
+        super(Sender, self).__init__()
+        self.fc1 = nn.Linear(n_inputs, n_hidden)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        return x
+
+class Receiver2(nn.Module):
     def __init__(self, n_outputs, n_hidden):
         super(Receiver, self).__init__()
         self.fc1 = nn.Linear(n_hidden, n_hidden)
@@ -27,9 +45,7 @@ class Receiver(nn.Module):
         x = self.fc2(x)
         return x
 
-
-
-class Sender(nn.Module):
+class Sender2(nn.Module):
     def __init__(self, n_inputs, n_hidden):
         super(Sender, self).__init__()
         self.emb = nn.Linear(n_inputs, n_hidden, bias=False)
@@ -146,7 +162,7 @@ class BosSender(nn.Module):
 
         result = torch.zeros(x.size(0), self.max_len, requires_grad=False).long()
         attribs = list(range(self.n_attributes))
-        
+
         for i in range(x.size(0)):
             current_position = 0
             random.shuffle(attribs)
@@ -159,7 +175,7 @@ class BosSender(nn.Module):
 
         """result = []
         attribs = list(range(self.n_attributes))
-        
+
         for i in range(x.size(0)):
             current_position = 0
             random.shuffle(attribs)
