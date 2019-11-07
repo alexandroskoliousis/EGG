@@ -96,6 +96,32 @@ class DiffLoss(torch.nn.Module):
         loss = F.cross_entropy(receiver_output, labels, reduction="none").view(batch_size, n_attributes).mean(dim=-1)
         return loss, {'acc': acc}
 
+class DiffLoss(torch.nn.Module):
+    def __init__(self, n_attributes, n_values, cut_at_attribute=None):
+        super().__init__()
+        self.n_attributes = n_attributes
+        self.n_values = n_values
+        self.cut_attribute = cut_at_attribute
+
+    def forward(self, sender_input, _message, _receiver_input, receiver_output, _labels):
+        batch_size = sender_input.size(0)
+        sender_input = sender_input.view(batch_size, self.n_attributes, self.n_values)
+        receiver_output = receiver_output.view(batch_size, self.n_attributes, self.n_values)
+
+        if self.cut_attribute is not None:
+            sender_input = torch.cat([sender_input[:, :self.cut_attribute, :], sender_input[:, self.cut_attribute+1:, :]], dim=1)
+            receiver_output = torch.cat([receiver_output[:, :self.cut_attribute, :],receiver_output[:, self.cut_attribute+1:, :]], dim=1)
+            n_attributes = self.n_attributes - 1
+        else:
+            n_attributes = self.n_attributes
+
+        acc = (torch.sum((receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach(),1)==n_attributes).float().mean()
+        #acc = (receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach().float().mean()
+        receiver_output = receiver_output.view(batch_size * n_attributes, self.n_values)
+        labels = sender_input.argmax(dim=-1).view(batch_size * n_attributes)
+        loss = F.cross_entropy(receiver_output, labels, reduction="none").view(batch_size, n_attributes).mean(dim=-1)
+        return loss, {'acc': acc}
+
 
 def _set_seed(seed) -> None:
     import random
@@ -114,13 +140,13 @@ def main(params):
     device = opts.device
     full_data = enumerate_attribute_value(opts.n_attributes, opts.n_values)
 
-    #holdout_a1, rest = split_by_attribute_value(full_data, 0, 0)
-    #holdout_a2, rest = split_by_attribute_value(rest, 1, 0)
-    #train, uniform_holdout = split_train_test(rest, 0.1)
+    holdout_a1, rest = split_by_attribute_value(full_data, 0, 0)
+    holdout_a2, rest = split_by_attribute_value(rest, 1, 0)
+    train, uniform_holdout = split_train_test(rest, 0.1)
 
-    holdout_a1, rest = split_by_attribute_value(full_data, 0, [13, 84, 76])
-    holdout_a2, rest = split_by_attribute_value(rest, 1, [25, 49])
-    train, uniform_holdout = split_train_test(rest, 0.05)
+    #holdout_a1, rest = split_by_attribute_value(full_data, 0, [13, 84, 76])
+    #holdout_a2, rest = split_by_attribute_value(rest, 1, [25, 49])
+    #train, uniform_holdout = split_train_test(rest, 0.05)
 
     apply = lambda x: list(one_hotify(x, opts.n_attributes, opts.n_values))
     holdout_a1, holdout_a2, train, uniform_holdout, full_data = list(map(apply, [holdout_a1, holdout_a2, train, uniform_holdout, full_data]))
@@ -216,7 +242,7 @@ def main(params):
         game=game, optimizer=optimizer,
         train_data=train_loader,
         validation_data=validation_loader,
-        callbacks=[core.ConsoleLogger(as_json=True, print_train_loss=True),
+        callbacks=[core.ConsoleLogger(as_json=True, print_train_loss=False),
                    EarlyStopperAccuracy(opts.early_stopping_thr, validation=True),
                    metrics_evaluator,
                    holdout_evaluator])
