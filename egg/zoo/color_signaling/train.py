@@ -24,7 +24,7 @@ def get_params(params):
     parser = argparse.ArgumentParser()
     parser.add_argument('--temperature', type=float, default=1.0,
                         help="GS temperature for the sender (default: 1.0)")
-    parser.add_argument('--mode', type=str, choices=['gs', 'rf'], default='rf')
+    parser.add_argument('--mode', type=str, choices=['gs', 'rf'], default='gs')
     parser.add_argument('--sender_entropy_coeff', type=float, default=5e-2)
     parser.add_argument('--early_stopping_delta', type=float, default=1e-10,
                         help="Early stopping delta on loss (default: 1e-5)")
