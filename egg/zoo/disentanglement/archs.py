@@ -33,6 +33,19 @@ class Sender(nn.Module):
         x = self.fc1(x)
         return x
 
+class SenderFFN(nn.Module):
+    def __init__(self, n_inputs, n_hidden, n_output):
+        super(SenderFFN, self).__init__()
+        self.emb = nn.Linear(n_inputs, n_hidden, bias=False)
+        self.fc = nn.Linear(n_hidden, n_output)
+
+    def forward(self, x):
+        x = self.emb(x)
+        x = F.leaky_relu(x)
+        x = self.fc(x)
+        return x
+
+
 class Receiver2(nn.Module):
     def __init__(self, n_outputs, n_hidden):
         super(Receiver, self).__init__()
@@ -44,19 +57,6 @@ class Receiver2(nn.Module):
         x = F.leaky_relu(x)
         x = self.fc2(x)
         return x
-
-class Sender2(nn.Module):
-    def __init__(self, n_inputs, n_hidden):
-        super(Sender, self).__init__()
-        self.emb = nn.Linear(n_inputs, n_hidden, bias=False)
-        self.fc = nn.Linear(n_hidden, n_hidden)
-
-    def forward(self, x):
-        x = self.emb(x)
-        x = F.leaky_relu(x)
-        x = self.fc(x)
-        return x
-
 
 class Shuffler(nn.Module):
     def __init__(self, sender):
@@ -409,6 +409,36 @@ class SenderReceiverRnnReinforceWithDiscriminator(nn.Module):
         self.n_points[name] += 1
         self.mean_baseline[name] += (value.detach().mean().item() - self.mean_baseline[name]) / self.n_points[name]
 
+
+class ReinforceWrapperFFN(nn.Module):
+    def __init__(self, agent, length, vocab_size):
+        super(ReinforceWrapperFFN, self).__init__()
+        self.agent = agent
+        self.length = length
+        self.vocab_size = vocab_size
+
+    def forward(self, *args, **kwargs):
+        logits = self.agent(*args, **kwargs)
+        batch_size = logits.size(0)
+        length_logits = logits.view(batch_size, self.length, self.vocab_size).permute(1,0,2)
+        samples = []
+        log_probs = []
+        entropies = []
+        for _length in length_logits:
+            distr = Categorical(logits=_length)
+            entropy = distr.entropy()
+
+            if self.training:
+                sample = distr.sample()
+            else:
+                sample = _length.argmax(dim=1)
+            log_prob = distr.log_prob(sample)
+
+            log_probs.append(log_prob.unsqueeze(1))
+            entropies.append(entropy.unsqueeze(1))
+            samples.append(sample.unsqueeze(1))
+
+        return torch.cat(samples,1), torch.cat(log_probs,1), torch.cat(entropies,1)
 
 if __name__ == '__main__':
     mapper = BosSender(n_attributes=3, n_values=3, vocab_size=10, max_len=15)
