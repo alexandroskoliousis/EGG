@@ -63,7 +63,6 @@ def get_params(params):
     parser.add_argument('--early_stopping_thr', type=float, default=0.99999,
                         help="Early stopping threshold on accuracy (defautl: 0.99999)")
 
-
     parser.add_argument('--d_type', default=None, choices=['pos', 'bos', None])
 
     parser.add_argument('--d_weight', type=float, default=0.0, help="")
@@ -91,7 +90,7 @@ class DiffLoss(torch.nn.Module):
             # remove the values that are not seen in both attributes 1 and 2
             # we assume here that only attributes 1 and 2 have heldout values
             index = int(not(self.cut_attribute))
-            if self.cut_attribute==0:
+            if self.cut_attribute == 0:
                 attr = 1
                 unseen = self.unseen_1
             else:
@@ -217,7 +216,7 @@ def main(params):
                                                        receiver_entropy_coeff=0.0, length_cost=0.0)
     optimizer = torch.optim.Adam(params, lr=opts.lr)
 
-    metrics_evaluator = Metrics(full_data.examples, opts.device, opts.n_attributes, opts.n_values, opts.vocab_size + 1, freq=opts.stats_freq)
+    metrics_evaluator = Metrics(validation.examples, opts.device, opts.n_attributes, opts.n_values, opts.vocab_size + 1, freq=opts.stats_freq)
 
     loaders = []
     loaders.append(("hold out a1", holdout_a1_loader, DiffLoss(opts.n_attributes, opts.n_values, 0, unseen_0)))
