@@ -238,7 +238,7 @@ def main(params):
     #dump(game, full_data_loader, opts.device, opts.n_attributes, opts.n_values)
 
     # Train new agents
-    if validation_accs[-1]>0.99:
+    if validation_accs[-1] > 0.99:
         core.get_opts().preemptable = False
         core.get_opts().checkpoint_path = None
 
