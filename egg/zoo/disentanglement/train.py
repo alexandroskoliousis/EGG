@@ -5,6 +5,7 @@
 
 import json
 import argparse
+import copy
 import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
@@ -72,11 +73,14 @@ def get_params(params):
 
 
 class DiffLoss(torch.nn.Module):
-    def __init__(self, n_attributes, n_values, cut_at_attribute=None):
+    def __init__(self, n_attributes, n_values, \
+                  cut_at_attribute=None, unseen_0=0, unseen_1=0):
         super().__init__()
         self.n_attributes = n_attributes
         self.n_values = n_values
         self.cut_attribute = cut_at_attribute
+        self.unseen_0 = unseen_0
+        self.unseen_1 = unseen_1
 
     def forward(self, sender_input, _message, _receiver_input, receiver_output, _labels):
         batch_size = sender_input.size(0)
@@ -84,39 +88,24 @@ class DiffLoss(torch.nn.Module):
         receiver_output = receiver_output.view(batch_size, self.n_attributes, self.n_values)
 
         if self.cut_attribute is not None:
+            # remove the values that are not seen in both attributes 1 and 2
+            # we assume here that only attributes 1 and 2 have heldout values
+            index = int(not(self.cut_attribute))
+            if self.cut_attribute==0:
+                attr = 1
+                unseen = self.unseen_1
+            else:
+                attr = 0
+                unseen = self.unseen_0
+            to_maintain = (sender_input[:, attr, :].argmax(1)!=unseen).nonzero().squeeze(1)
             sender_input = torch.cat([sender_input[:, :self.cut_attribute, :], sender_input[:, self.cut_attribute+1:, :]], dim=1)
             receiver_output = torch.cat([receiver_output[:, :self.cut_attribute, :],receiver_output[:, self.cut_attribute+1:, :]], dim=1)
             n_attributes = self.n_attributes - 1
+            acc = (torch.sum((receiver_output[to_maintain, :,:].argmax(dim=-1) == sender_input[to_maintain, :,:].argmax(dim=-1)).detach(),1)==n_attributes).float().mean()
         else:
             n_attributes = self.n_attributes
+            acc = (torch.sum((receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach(),1)==n_attributes).float().mean()
 
-        acc = (receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach().float().mean()
-        receiver_output = receiver_output.view(batch_size * n_attributes, self.n_values)
-        labels = sender_input.argmax(dim=-1).view(batch_size * n_attributes)
-        loss = F.cross_entropy(receiver_output, labels, reduction="none").view(batch_size, n_attributes).mean(dim=-1)
-        return loss, {'acc': acc}
-
-class DiffLoss(torch.nn.Module):
-    def __init__(self, n_attributes, n_values, cut_at_attribute=None):
-        super().__init__()
-        self.n_attributes = n_attributes
-        self.n_values = n_values
-        self.cut_attribute = cut_at_attribute
-
-    def forward(self, sender_input, _message, _receiver_input, receiver_output, _labels):
-        batch_size = sender_input.size(0)
-        sender_input = sender_input.view(batch_size, self.n_attributes, self.n_values)
-        receiver_output = receiver_output.view(batch_size, self.n_attributes, self.n_values)
-
-        if self.cut_attribute is not None:
-            sender_input = torch.cat([sender_input[:, :self.cut_attribute, :], sender_input[:, self.cut_attribute+1:, :]], dim=1)
-            receiver_output = torch.cat([receiver_output[:, :self.cut_attribute, :],receiver_output[:, self.cut_attribute+1:, :]], dim=1)
-            n_attributes = self.n_attributes - 1
-        else:
-            n_attributes = self.n_attributes
-
-        acc = (torch.sum((receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach(),1)==n_attributes).float().mean()
-        #acc = (receiver_output.argmax(dim=-1) == sender_input.argmax(dim=-1)).detach().float().mean()
         receiver_output = receiver_output.view(batch_size * n_attributes, self.n_values)
         labels = sender_input.argmax(dim=-1).view(batch_size * n_attributes)
         loss = F.cross_entropy(receiver_output, labels, reduction="none").view(batch_size, n_attributes).mean(dim=-1)
@@ -140,13 +129,12 @@ def main(params):
     device = opts.device
     full_data = enumerate_attribute_value(opts.n_attributes, opts.n_values)
 
-    holdout_a1, rest = split_by_attribute_value(full_data, 0, 0)
-    holdout_a2, rest = split_by_attribute_value(rest, 1, 0)
-    train, uniform_holdout = split_train_test(rest, 0.1)
+    unseen_0 = 0
+    unseen_1 = 0
 
-    #holdout_a1, rest = split_by_attribute_value(full_data, 0, [13, 84, 76])
-    #holdout_a2, rest = split_by_attribute_value(rest, 1, [25, 49])
-    #train, uniform_holdout = split_train_test(rest, 0.05)
+    holdout_a1, rest = split_by_attribute_value(full_data, 0, unseen_0)
+    holdout_a2, rest = split_by_attribute_value(rest, 1, unseen_1)
+    train, uniform_holdout = split_train_test(rest, 0.1)
 
     apply = lambda x: list(one_hotify(x, opts.n_attributes, opts.n_values))
     holdout_a1, holdout_a2, train, uniform_holdout, full_data = list(map(apply, [holdout_a1, holdout_a2, train, uniform_holdout, full_data]))
@@ -232,8 +220,8 @@ def main(params):
     metrics_evaluator = Metrics(full_data.examples, opts.device, opts.n_attributes, opts.n_values, opts.vocab_size + 1, freq=opts.stats_freq)
 
     loaders = []
-    loaders.append(("hold out a1", holdout_a1_loader, DiffLoss(opts.n_attributes, opts.n_values, 0)))
-    loaders.append(("hold out a2", holdout_a2_loader, DiffLoss(opts.n_attributes, opts.n_values, 1)))
+    loaders.append(("hold out a1", holdout_a1_loader, DiffLoss(opts.n_attributes, opts.n_values, 0, unseen_0)))
+    loaders.append(("hold out a2", holdout_a2_loader, DiffLoss(opts.n_attributes, opts.n_values, 1, unseen_1)))
     loaders.append(("uniform holdout", uniform_holdout_loader,  DiffLoss(opts.n_attributes, opts.n_values)))
 
     holdout_evaluator = Evaluator(loaders, opts.device, freq=0)
@@ -246,48 +234,90 @@ def main(params):
                    EarlyStopperAccuracy(opts.early_stopping_thr, validation=True),
                    metrics_evaluator,
                    holdout_evaluator])
-    trainer.train(n_epochs=opts.n_epochs)
+    validation_accs = trainer.train(n_epochs=opts.n_epochs)
 
-    dump(game, full_data_loader, opts.device, opts.n_attributes, opts.n_values)
-    """
-    # freeze Sender and probe how fast a simple Receiver will learn the thing
-    sender = Freezer(sender)
-    core.get_opts().preemptable = False
-    core.get_opts().checkpoint_path = None
+    #dump(game, full_data_loader, opts.device, opts.n_attributes, opts.n_values)
 
-    def retrain_receiver(receiver_generator):
-        receiver = receiver_generator()
-        game = SenderReceiverRnnReinforceWithDiscriminator(
-                sender, receiver, loss, sender_entropy_coeff=0.0, receiver_entropy_coeff=0.0)
-        optimizer = torch.optim.Adam(receiver.parameters(), lr=opts.lr)
+    # Train new agents
+    if validation_accs[-1]>0.99:
+        core.get_opts().preemptable = False
+        core.get_opts().checkpoint_path = None
 
-        trainer = core.Trainer(
-            game=game, optimizer=optimizer,
-            train_data=train_loader,
-            validation_data=validation_loader,
-            callbacks=[#core.ConsoleLogger(as_json=True, print_train_loss=False),
-                    EarlyStopperAccuracy(opts.early_stopping_thr, validation=True),
-                    Evaluator(loaders, opts.device, freq=0)
-                    ])
-        trainer.train(n_epochs=opts.n_epochs)
+        # freeze Sender and probe how fast a simple Receiver will learn the thing
+        def retrain_receiver(receiver_generator, sender):
+            receiver = receiver_generator()
+            game = SenderReceiverRnnReinforceWithDiscriminator(
+                    sender, receiver, loss, sender_entropy_coeff=0.0, receiver_entropy_coeff=0.0)
+            optimizer = torch.optim.Adam(receiver.parameters(), lr=opts.lr)
 
-    lstm_receiver_generator = lambda: \
-        core.RnnReceiverDeterministic(Receiver(n_hidden=10, n_outputs=n_dim),
-                opts.vocab_size + 1, opts.receiver_emb, hidden_size=10, cell='lstm')
+            trainer = core.Trainer(
+                game=game, optimizer=optimizer,
+                train_data=train_loader,
+                validation_data=validation_loader,
+                callbacks=[#core.ConsoleLogger(as_json=True, print_train_loss=False),
+                        EarlyStopperAccuracy(opts.early_stopping_thr, validation=True),
+                        Evaluator(loaders, opts.device, freq=0)
+                        ])
+            accs = trainer.train(n_epochs=opts.n_epochs)
+            return accs
 
-    transformer_receiver_generator = lambda: \
-        core.TransformerReceiverDeterministic(
-                Receiver(n_hidden=opts.receiver_hidden, n_outputs=n_dim),
-                opts.vocab_size + 1, opts.max_len,
-                opts.receiver_hidden, num_heads=1, hidden_size=opts.receiver_hidden, num_layers=1,
-                positional_emb=True)
+        # freeze Sender and probe how fast a simple Receiver will learn the thing
+        def retrain_sender(speaker_generator, receiver):
+            sender = sender_generator()
+            game = SenderReceiverRnnReinforceWithDiscriminator(
+                    sender, receiver, loss, sender_entropy_coeff=opts.sender_entropy_coeff, receiver_entropy_coeff=0.0)
+            optimizer = torch.optim.Adam(sender.parameters(), lr=opts.lr)
 
-    for name, receiver_generator in [('transformer', transformer_receiver_generator), ('lstm', lstm_receiver_generator)]:
-        for seed in range(17, 17 + 3):
-            _set_seed(seed)
-            print(json.dumps({"mode": "reset", "seed": seed, "receiver_name": name}))
-            retrain_receiver(receiver_generator)
-    """
+            trainer = core.Trainer(
+                game=game, optimizer=optimizer,
+                train_data=train_loader,
+                validation_data=validation_loader,
+                callbacks=[#core.ConsoleLogger(as_json=True, print_train_loss=False),
+                        EarlyStopperAccuracy(opts.early_stopping_thr, validation=True),
+                        Evaluator(loaders, opts.device, freq=0) # Only evaluate on the uniform heldout
+                        ])
+            accs = trainer.train(n_epochs=opts.n_epochs)
+            return accs
+
+        frozen_sender = Freezer(copy.deepcopy(sender))
+        frozen_receiver = Freezer(copy.deepcopy(receiver))
+
+        gru_receiver_generator = lambda: \
+            core.RnnReceiverDeterministic(Receiver(n_hidden=opts.receiver_hidden, n_outputs=n_dim),
+                    opts.vocab_size + 1, opts.receiver_emb, hidden_size=opts.receiver_hidden, cell='gru')
+
+        transformer_receiver_generator = lambda: \
+            core.TransformerReceiverDeterministic(
+                    Receiver(n_hidden=opts.receiver_hidden, n_outputs=n_dim),
+                    opts.vocab_size + 1, opts.max_len,
+                    opts.receiver_hidden, num_heads=5, hidden_size=opts.receiver_emb, num_layers=1,
+                    positional_emb=True)
+
+        for name, receiver_generator in [('transformer', transformer_receiver_generator), ('gru', gru_receiver_generator)]:
+            for seed in range(17, 17 + 3):
+                _set_seed(seed)
+                print(json.dumps({"mode": "reset", "seed": seed, "receiver_name": name}))
+                accs = retrain_receiver(receiver_generator, frozen_sender)
+                print(json.dumps({"mode": "reset", "seed": seed, "receiver_name": name, "accs": accs}))
+
+        gru_sender_generator = lambda: \
+            PlusOneWrapper(core.RnnSenderReinforce(agent=Sender(n_inputs=n_dim, n_hidden=opts.sender_hidden),
+                    vocab_size=opts.vocab_size, embed_dim=opts.sender_emb,
+                    hidden_size=opts.sender_hidden, max_len=opts.max_len, force_eos=False,
+                    cell='gru'))
+
+        transformer_sender_generator = lambda: \
+            PlusOneWrapper(core.TransformerSenderReinforce(agent=Sender(n_inputs=n_dim, n_hidden=opts.sender_hidden),
+                    vocab_size=opts.vocab_size, embed_dim=opts.sender_hidden, max_len=opts.max_len,
+                    num_layers=1, num_heads=5, hidden_size=opts.sender_emb, force_eos=False))
+
+        for name, sender_generator in [('transformer', transformer_sender_generator), ('gru', gru_sender_generator)]:
+            for seed in range(17, 17 + 3):
+                _set_seed(seed)
+                print(json.dumps({"mode": "reset", "seed": seed, "sender_name": name}))
+                accs = retrain_sender(sender_generator, frozen_receiver)
+                print(json.dumps({"mode": "reset", "seed": seed, "sender_name": name, "accs": accs}))
+
     core.close()
 
 if __name__ == "__main__":
