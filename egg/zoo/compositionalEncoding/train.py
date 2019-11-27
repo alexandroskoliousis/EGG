@@ -13,6 +13,7 @@ import sys
 import torch.utils.data
 import torch.nn.functional as F
 
+
 import egg.core as core
 from egg.core import EarlyStopperAccuracy
 from egg.zoo.compositionalEncoding.features import SimpleLoader, CompositionalLoader, \
