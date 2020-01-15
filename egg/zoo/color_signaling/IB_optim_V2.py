@@ -50,8 +50,7 @@ def entropy(var):
     H = sum(-p*np.log2(p))
     return H
 
-
- def compute_dic_multi(alpha, _dict):
+def compute_dic_multi(alpha, _dict):
     new_dict = {}
     for key, value in _dict.items():
         new_dict[key] = alpha*value
