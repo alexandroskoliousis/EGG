@@ -4,17 +4,19 @@ import copy
 import multiprocessing as mp
 import os
 from os.path import isfile, join
+from math import log2, exp
+from collections import Counter
 
 def compute_distortion(c, z, m_c, mhat_z):
-    assert m_c[c].keys()==mhat_z[z].keys()
+    # assert m_c[c].keys()==mhat_z[z].keys()
     distortion = 0
     for key, value in m_c[c].items():
-        if value != 0:
-            if mhat_z[z][key]==0:
-                distortion = 2**13 # Inf
-            else:
-                div = m_c[c][key]/mhat_z[z][key]
-                distortion += value*np.log2(div)
+        if mhat_z[z][key]==0:
+            distortion = 2**13 # Inf
+            return distortion
+        else:
+            div = m_c[c][key]/mhat_z[z][key]
+            distortion += value*log2(div)
     return distortion
 
 
@@ -24,7 +26,7 @@ def compute_F(beta, pZ, pZ_condC, mhat_z, pC, m_c, Z, C):
         for c in C:
             if pZ_condC[c][z]!=0:
                 div = pZ_condC[c][z]/pZ[z]
-                complexity += pC[c]*pZ_condC[c][z]*np.log2(div)
+                complexity += pC[c]*pZ_condC[c][z]*log2(div)
 
     avg_distortion = 0
     for z in Z:
@@ -34,16 +36,22 @@ def compute_F(beta, pZ, pZ_condC, mhat_z, pC, m_c, Z, C):
 
     return (complexity, avg_distortion, complexity+beta*avg_distortion)
 
-def entropy(var):
+def entropy_old(var):
     H = 0
     uniques = np.unique(var)
     for x in uniques:
         p = sum([avar==x for avar in var])/len(var)
         if p != 0:
-            H += -p*np.log2(p)
+            H += -p*log2(p)
     return H
 
-def compute_dic_multi(alpha, _dict):
+def entropy(var):
+    p = np.array([*Counter(var).values()])/len(var)
+    H = sum(-p*np.log2(p))
+    return H
+
+
+ def compute_dic_multi(alpha, _dict):
     new_dict = {}
     for key, value in _dict.items():
         new_dict[key] = alpha*value
@@ -78,11 +86,11 @@ def iIB(C, Z, pC, beta, pZ_old, mhat_z_old, m_c):
 
     for z in Z:
         for c in C:
-            pZ_condC[c][z] = pZ_old[z]* np.exp(-beta*distortions[c][z])
+            pZ_condC[c][z] = pZ_old[z]* exp(-beta*distortions[c][z])
 
             normalization = 0
             for ztmp in Z:
-                normalization += pZ_old[ztmp]* np.exp(-beta*distortions[c][ztmp])
+                normalization += pZ_old[ztmp]* exp(-beta*distortions[c][ztmp])
 
             if normalization == 0:
                 boolean = False
@@ -139,7 +147,7 @@ Y = range(N)
 pC = [1/float(N)]*N
 m_c = pickle.load(open( "/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/IB_optim/m_c.p", "rb" ))
 
-starting = 8
+starting = 9
 epsilon = 0.001
 inverted_betas = list(np.arange(1.001,2,0.001)) + list(np.arange(2,11,1)) + [20, 40, 60, 80, 100] #+ [150,2**13]
 betas = inverted_betas[::-1]
