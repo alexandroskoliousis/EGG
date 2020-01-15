@@ -42,8 +42,19 @@ class Sender(nn.Module):
         if ids:
             self.emb = nn.Embedding(n_colors, 3)
         self.ids = ids
-        self.fc1 = nn.Linear(3, 500) # LAB is a 3D space
+        """
+        # V1
+        self.fc1 = nn.Linear(3, 500) # LAB is a 3D space (originally 500)
         self.fc2 = nn.Linear(500, vocab_size)
+        # V2
+        self.fc1 = nn.Linear(3, 1000) # LAB is a 3D space
+        self.fc2 = nn.Linear(1000, vocab_size)
+        """
+        # V3
+        self.fc1 = nn.Linear(3, 1000) # LAB is a 3D space (originally 500)
+        self.fc2 = nn.Linear(1000, 1000) ## New
+        self.fc3 = nn.Linear(1000, vocab_size)
+
 
     def forward(self, x):
         if self.ids:
@@ -54,6 +65,9 @@ class Sender(nn.Module):
         x = self.fc1(x)
         x = F.leaky_relu(x)
         x = self.fc2(x)
+        # V3
+        x = F.leaky_relu(x) # NEW
+        x = self.fc3(x)
         return x.log_softmax(dim=-1)
 
 
