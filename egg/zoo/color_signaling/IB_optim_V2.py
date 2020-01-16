@@ -146,9 +146,10 @@ Y = range(N)
 pC = [1/float(N)]*N
 m_c = pickle.load(open( "/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/IB_optim/m_c.p", "rb" ))
 
-starting = 9
+starting = 20
 epsilon = 0.001
-inverted_betas = list(np.arange(1.001,2,0.001)) + list(np.arange(2,11,1)) + [20, 40, 60, 80, 100] #+ [150,2**13]
+#inverted_betas = list(np.arange(1.001,2,0.001)) + list(np.arange(2,11,1)) + [20, 40, 60, 80, 100] #+ [150,2**13]
+inverted_betas = list(np.arange(1.001,1.1,0.001)) + list(np.arange(1.1,2,0.05)) + list(np.arange(2,11,1)) + [20, 40, 60, 80, 100] #+ [150,2**13]
 betas = inverted_betas[::-1]
 
 # Initialization
@@ -169,7 +170,7 @@ if starting == 0:
 elif starting>0:
     ## Initialization if starting not from the beginning of the algorithm
     path_toprevious_sol = join('/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/IB_optim/solutions',\
-                              f'betasol_{betas[starting-1]}.p')
+                              f'betasol_{round(betas[starting-1],4)}.p')
     print('previous solution is saved in ', path_toprevious_sol)
     solution = pickle.load(open(path_toprevious_sol, 'rb'))
 
