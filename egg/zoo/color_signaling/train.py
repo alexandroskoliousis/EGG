@@ -15,7 +15,7 @@ from sklearn.metrics import mutual_info_score
 
 import egg.core as core
 from egg.core import EarlyStopperLoss,EarlyStopperAccuracy
-from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix
+from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix, Color_2D_Data, ColorData_RGB
 from egg.zoo.color_signaling.archs import Sender, Receiver
 
 N_COLOR_IDS = 330
@@ -34,12 +34,23 @@ def get_params(params):
                         help='Number of batches per epoch (default: 100)')
     parser.add_argument('--n_distractor', type=int, default=1)
     parser.add_argument('--percentile', type=float, default=50.0)
-    parser.add_argument('--receiver_hidden', type=int, default=100,
-                        help='Size of the hidden layer of Receiver (default: 100)')
+
+    parser.add_argument('--receiver_hidden', type=int, default=5,
+                        help='Size of the hidden layer of Receiver (default: 5)')
+    parser.add_argument('--receiver_num_hidden', type=int, default=1,
+                        help='Number of the hidden layer of Receiver (default: 1)')
+
+    parser.add_argument('--sender_hidden', type=int, default=1000,
+                        help='Size of the hidden layer of Receiver (default: 1000)')
+    parser.add_argument('--sender_num_hidden', type=int, default=3,
+                        help='Number of the hidden layer of Receiver (default: 3)')
+
     parser.add_argument('--early_stopping_thr', type=float, default=0.9999,
                         help="Early stopping threshold on accuracy (default: 0.9999)")
-    parser.add_argument('--input_id', type=int, default=0,
-                        help="Give IDs as input, if 0 inputs are the CIELAB coordinate (default: 0)")
+    parser.add_argument('--input_id', type=int, default=3,
+                        help="Give IDs as input, if 3 inputs are the CILAB coordinate, if 2 we are in the 2D space otherwise (if 1) we have only indexes (default: 3)")
+    parser.add_argument('--input_space', type=str, default='cielab',
+                        help="could be cielab or rgb")
 
 
 
@@ -112,12 +123,19 @@ def dump(game, test_data, device):
 def main(params):
     opts = get_params(params)
     device = opts.device
-    input_id = opts.input_id == 1
+    if opts.input_id not in [1,2,3]:
+        print('wrong parameter input_id')
+        exit()
 
     data = ColorData()
     distance_matrix = build_distance_matrix(data)
-    percentile = np.percentile(distance_matrix, opts.percentile)
+    if opts.input_id == 2:
+        data = Color_2D_Data()
 
+    if opts.input_space == 'rgb':
+        data = ColorData_RGB()
+
+    percentile = np.percentile(distance_matrix, opts.percentile)
     train_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
                                     batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=percentile, data=data)
     # Same validation across runs by fixing the seed
@@ -125,8 +143,12 @@ def main(params):
                                     batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, data=data)
 
     # initialize the agents and the game
-    sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=input_id)  # the "data" transform part of an agent
-    receiver = Receiver(opts.receiver_hidden, n_colors=N_COLOR_IDS, ids=input_id)
+    #sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
+    #receiver = Receiver(opts.receiver_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
+    sender = Sender(opts.vocab_size, num_layers=opts.sender_num_hidden, hidden_size=opts.sender_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
+    receiver = Receiver(opts.receiver_hidden, num_layers=opts.receiver_num_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
+
+
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
 

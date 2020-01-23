@@ -7,6 +7,8 @@ import pathlib
 import numpy as np
 import torch
 import torch.utils.data as data
+from colormath.color_conversions import convert_color
+from colormath.color_objects import LabColor, sRGBColor
 
 def findposition(value, alist):
     if value==alist[0]:
@@ -50,6 +52,22 @@ def ColorData(chip_file=None):
     data = np.loadtxt(chip_file, dtype=str, delimiter='\t')
     data = [torch.tensor([int(index)-1, float(x_value), float(y_value), float(z_value)]) for (index, x_value, y_value, z_value) \
                                         in zip(data[:,0], data[:,6], data[:,7], data[:,8])]
+    return data
+
+def ColorData_RGB(chip_file=None):
+    if chip_file is None:
+        chip_file = pathlib.Path(__file__).parent / 'data/lab_coor.txt'
+    else:
+        chip_file = pathlib.Path(chip_file)
+
+    if not chip_file.exists():
+        raise FileNotFoundError(f'Cannot find chip file {chip_file}')
+
+    data = np.loadtxt(chip_file, dtype=str, delimiter='\t')
+    list_RGB = [convert_color(LabColor(x_value, y_value, z_value), sRGBColor).get_value_tuple() for (x_value, y_value, z_value) \
+                    in zip( data[:,6], data[:,7], data[:,8])]
+    data = [torch.tensor([int(index)-1, *tuple([min(x,1) for x in sRGB])]) for (index, sRGB) \
+                    in zip(data[:,0], list_RGB)]
     return data
 
 def sample_min(_list, min_value, n, random_state, distance_list):
@@ -141,6 +159,44 @@ class ColorIterator:
                                 batch_size=self.batch_size, distance_matrix=self.distance_matrix, min_value=self.min_value, \
                                 train=self.train, data=self.data, seed=self.seed)
 
+def build_2D_distance_matrix(dataset):
+    n = len(dataset.data)
+    distance_matrix = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(i):
+            color_i, color_j = dataset.data[i], dataset.data[j]
+            x_i, y_i = color_i[1], color_i[2]
+            x_j, y_j = color_j[1], color_j[2]
+
+            dist_x = np.abs(x_i - x_j)
+            dist_y = min(np.abs(y_i - y_j), np.abs(y_i - y_j + 40), np.abs(y_i - y_j - 40))
+            dist = dist_x + dist_y
+
+            distance_matrix[i, j] = dist
+            distance_matrix[j, i] = dist
+
+    return distance_matrix
+
+def Color_2D_Data(chip_file=None):
+    if chip_file is None:
+        chip_file = pathlib.Path(__file__).parent / 'data/chip.txt'
+    else:
+        chip_file = pathlib.Path(chip_file)
+
+    if not chip_file.exists():
+        raise FileNotFoundError(f'Cannot find chip file {chip_file}')
+
+    data = np.loadtxt(chip_file, dtype=str, delimiter='\t')
+    # the first row is row id, the last is the concatenation of
+    # the 2nd and the 3rd, don't need those
+    data = data[:, 1:3]
+
+    x = [ord(v) - ord('A') for v in data[:, 0]]
+    y = [int(v) for v in data[:, 1]]
+    data = [torch.tensor([i, x_value, y_value]).long() for i, (x_value, y_value) in enumerate(zip(x, y))]
+
+    return data
 
 if __name__ == '__main__':
     d = ColorData()
