@@ -16,7 +16,7 @@ from sklearn.metrics import mutual_info_score
 import egg.core as core
 from egg.core import EarlyStopperLoss,EarlyStopperAccuracy
 from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix, Color_2D_Data, ColorData_RGB
-from egg.zoo.color_signaling.archs import Sender, Receiver
+from egg.zoo.color_signaling.archs import Sender, Receiver, ContinousGame, ContinousReceiverWrapper
 
 N_COLOR_IDS = 330
 
@@ -123,7 +123,6 @@ def dump(game, test_data, device, gs):
         print(f'input sender: {s_inp.item()} | input receiver: {[r.item() for r in r_inp]} -> message: {message.argmax().item()} -> output: {out.item()}', flush=True)
     print(f'acc={unif_acc/sender_inp.size(0)}')
 
-
 def main(params):
     opts = get_params(params)
     device = opts.device
@@ -151,19 +150,9 @@ def main(params):
     #receiver = Receiver(opts.receiver_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
     sender = Sender(opts.vocab_size, num_layers=opts.sender_num_hidden, hidden_size=opts.sender_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
     receiver = Receiver(opts.receiver_hidden, num_layers=opts.receiver_num_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
+    receiver = ContinousReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
-
-    receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
-
-
-    if opts.mode == 'gs':
-        sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)
-        game = core.SymbolGameGS(sender, receiver, cross_entropy)
-    else:
-        sender = core.ReinforceWrapper(sender)
-        receiver = core.ReinforceDeterministicWrapper(receiver)
-        game = core.SymbolGameReinforce(sender, receiver, cross_entropy, opts.sender_entropy_coeff)
-
+    game = ContinousGame(sender, receiver, cross_entropy)
 
     optimizer = core.build_optimizer(game.parameters())
 

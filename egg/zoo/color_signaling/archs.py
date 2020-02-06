@@ -36,7 +36,7 @@ class Receiver2(nn.Module):
         energies = torch.matmul(embedded_input, torch.unsqueeze(x, dim=-1))
         return energies.squeeze()
 
-class Sender(nn.Module):
+class Sender1(nn.Module):
     def __init__(self, vocab_size, n_colors=330, ids=3):
         super(Sender, self).__init__()
         if ids==1:
@@ -76,7 +76,7 @@ class Sender(nn.Module):
         return x.log_softmax(dim=-1)
 
 
-class Receiver(nn.Module):
+class Receiver1(nn.Module):
     def __init__(self, hidden, n_colors=330, ids=3):
         super(Receiver, self).__init__()
         if ids==1:
@@ -97,7 +97,7 @@ class Receiver(nn.Module):
         energies = torch.matmul(embedded_input, torch.unsqueeze(x, dim=-1))
         return energies.squeeze()
 
-class Sender1(nn.Module):
+class Sender(nn.Module):
     def __init__(self, vocab_size, num_layers=2, hidden_size=1000, n_colors=330, ids=3):
         super(Sender, self).__init__()
         if ids==1:
@@ -130,7 +130,7 @@ class Sender1(nn.Module):
         return x.log_softmax(dim=-1)
 
 
-class Receiver1(nn.Module):
+class Receiver(nn.Module):
     def __init__(self, hidden, num_layers=1, n_colors=330, ids=3):
         super(Receiver, self).__init__()
         fcs = []
@@ -159,3 +159,47 @@ class Receiver1(nn.Module):
 
         energies = torch.matmul(embedded_input, torch.unsqueeze(x, dim=-1))
         return energies.squeeze()
+
+
+class ContinousGame(nn.Module):
+    def __init__(self, sender, receiver, loss):
+        """
+        :param sender: Sender agent. sender.forward() has to output log-probabilities over the vocabulary.
+        :param receiver: Receiver agent. receiver.forward() has to accept two parameters: message and receiver_input.
+        `message` is shaped as (batch_size, vocab_size).
+        :param loss: Callable that outputs differentiable loss, takes the following parameters:
+          * sender_input: input to Sender (comes from dataset)
+          * message: message sent from Sender
+          * receiver_input: input to Receiver from dataset
+          * receiver_output: output of Receiver
+          * labels: labels that come from dataset
+        """
+        super(ContinousGame, self).__init__()
+        self.sender = sender
+        self.receiver = receiver
+        self.loss = loss
+
+    def forward(self, sender_input, labels, receiver_input=None):
+        message = self.sender(sender_input)
+        receiver_output = self.receiver(message, receiver_input)
+
+        loss, rest_info = self.loss(sender_input, message, receiver_input, receiver_output, labels)
+        for k, v in rest_info.items():
+            if hasattr(v, 'mean'):
+                rest_info[k] = v.mean().item()
+
+        return loss.mean(), rest_info
+
+class ContinousReceiverWrapper(nn.Module):
+    """
+    An optional wrapper for single-symbol Receiver, both Gumbel-Softmax and Reinforce. Receives a message, embeds it,
+    and passes to the wrapped agent.
+    """
+    def __init__(self, agent, vocab_size, agent_input_size):
+        super(ContinousReceiverWrapper, self).__init__()
+        self.agent = agent
+        self.embedding = nn.Linear(vocab_size, agent_input_size)
+
+    def forward(self, message, input=None):
+        embedded_message = self.embedding(message)
+        return self.agent(embedded_message, input)
