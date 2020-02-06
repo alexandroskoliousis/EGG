@@ -181,7 +181,7 @@ class ContinousGame(nn.Module):
 
     def forward(self, sender_input, labels, receiver_input=None):
         message = self.sender(sender_input)
-        receiver_output = self.receiver(message, receiver_input)
+        receiver_output = self.receiver(message.softmax(dim=1), receiver_input)
 
         loss, rest_info = self.loss(sender_input, message, receiver_input, receiver_output, labels)
         for k, v in rest_info.items():
@@ -189,17 +189,3 @@ class ContinousGame(nn.Module):
                 rest_info[k] = v.mean().item()
 
         return loss.mean(), rest_info
-
-class ContinousReceiverWrapper(nn.Module):
-    """
-    An optional wrapper for single-symbol Receiver, both Gumbel-Softmax and Reinforce. Receives a message, embeds it,
-    and passes to the wrapped agent.
-    """
-    def __init__(self, agent, vocab_size, agent_input_size):
-        super(ContinousReceiverWrapper, self).__init__()
-        self.agent = agent
-        self.embedding = nn.Linear(vocab_size, agent_input_size)
-
-    def forward(self, message, input=None):
-        embedded_message = self.embedding(message)
-        return self.agent(embedded_message, input)
