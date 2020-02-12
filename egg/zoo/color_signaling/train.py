@@ -120,7 +120,8 @@ def dump(game, test_data, device, gs):
         unif_acc+=acc.item()
         s_inp = input_sender[0].long() # # ID
         r_inp = input_receiver[:,0].long() # # ID
-        print(f'input sender: {s_inp.item()} | input receiver: {[r.item() for r in r_inp]} -> message: {message.argmax().item()} -> output: {out.item()}', flush=True)
+        if gs: message = message.argmax()
+        print(f'input sender: {s_inp.item()} | input receiver: {[r.item() for r in r_inp]} -> message: {message.item()} -> output: {out.item()}', flush=True)
     print(f'acc={unif_acc/sender_inp.size(0)}')
 
 

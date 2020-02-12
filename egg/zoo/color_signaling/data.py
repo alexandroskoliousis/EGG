@@ -75,13 +75,16 @@ def sample_min(_list, min_value, n, random_state, distance_list):
     for _ in range(n):
         potential_distr = random_state.choice(len(_list), replace=False, size=1)[0]
         potential_distr = _list[potential_distr]
-        id_distr= int(potential_distr[0])
+        id_distr = int(potential_distr[0])
         distance = distance_list[id_distr]
-        while distance < min_value:
+
+        while (distance < min_value) or (distance == 0):
+            # Sample again till having a distance >=min_value
             potential_distr = random_state.choice(len(_list), replace=False, size=1)[0]
             potential_distr = _list[potential_distr]
             id_distr= int(potential_distr[0])
             distance = distance_list[id_distr]
+
         distractors.append(potential_distr.unsqueeze(0))
     return distractors
 

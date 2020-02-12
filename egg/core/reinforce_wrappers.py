@@ -16,7 +16,6 @@ from .transformer import TransformerEncoder, TransformerDecoder
 from .rnn import RnnEncoder
 from .util import find_lengths
 
-
 class ReinforceWrapper(nn.Module):
     """
     Reinforce Wrapper for an agent. Assumes that the during the forward,
@@ -114,6 +113,13 @@ class SymbolGameReinforce(nn.Module):
 
         loss, rest_info = self.loss(sender_input, message, receiver_input, receiver_output, labels)
         policy_loss = ((loss.detach() - self.mean_baseline) * (sender_log_prob + receiver_log_prob)).mean()
+        """
+        detached_loss = loss.detach()
+        sum_baseline = sum(detached_loss)
+        normalization = 1/(len(detached_loss)-1)
+        baseline = torch.stack([normalization*(sum_baseline-element) for element in detached_loss])
+        policy_loss = ((detached_loss - baseline) * (sender_log_prob + receiver_log_prob)).mean()
+        """
         entropy_loss = -(sender_entropy.mean() * self.sender_entropy_coeff + receiver_entropy.mean() * self.receiver_entropy_coeff)
 
         if self.training:
