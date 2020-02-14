@@ -15,7 +15,8 @@ from sklearn.metrics import mutual_info_score
 
 import egg.core as core
 from egg.core import EarlyStopperLoss,EarlyStopperAccuracy
-from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix, Color_2D_Data, ColorData_RGB
+from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix, Color_2D_Data, ColorData_converted
+from colormath.color_objects import LabColor, sRGBColor, HSLColor
 from egg.zoo.color_signaling.archs import Sender, Receiver
 
 N_COLOR_IDS = 330
@@ -50,7 +51,12 @@ def get_params(params):
     parser.add_argument('--input_id', type=int, default=3,
                         help="Give IDs as input, if 3 inputs are the CILAB coordinate, if 2 we are in the 2D space otherwise (if 1) we have only indexes (default: 3)")
     parser.add_argument('--input_space', type=str, default='cielab',
-                        help="could be cielab or rgb")
+                        help="could be cielab or rgb", choices=['cielab', 'rgb', 'hsl', 'index'])
+
+    parser.add_argument('--target_dst', type=str, choices=['uniform', 'SW'], default='uniform')
+    parser.add_argument('--distractor_dst', type=str, choices=['min_val', 'SW'], default='min_val')
+
+
 
 
 
@@ -134,18 +140,23 @@ def main(params):
 
     data = ColorData()
     distance_matrix = build_distance_matrix(data)
+
     if opts.input_id == 2:
         data = Color_2D_Data()
 
-    if opts.input_space == 'rgb':
-        data = ColorData_RGB()
+    if opts.input_space=='rgb':
+        data = ColorData_converted(new_space=sRGBColor)
+    elif opts.input_space=='hsl':
+        data = ColorData_converted(new_space=HSLColor)
 
     percentile = np.percentile(distance_matrix, opts.percentile)
     train_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
-                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=percentile, data=data)
+                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=percentile, \
+                                    data=data, proba_target=opts.target_dst, proba_distractor=opts.distractor_dst)
     # Same validation across runs by fixing the seed
     val_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=1, train=False, seed=1, \
-                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, data=data)
+                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, \
+                                    data=data)
 
     # initialize the agents and the game
     #sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
