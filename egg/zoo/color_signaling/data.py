@@ -91,38 +91,25 @@ def Color_2D_Data(chip_file=None):
 
     return data
 
-def sample_min(_list, min_value, n, random_state, distance_list):
+def sample_distractors(_list, n, random_state, distance_list, prob=None, min_value=None):
     distractors = []
     for _ in range(n):
-        potential_distr = random_state.choice(len(_list), replace=False, size=1)[0]
-        potential_distr = _list[potential_distr]
-        id_distr = int(potential_distr[0])
-        distance = distance_list[id_distr]
-
-        while (distance < min_value) or (distance == 0):
-            # Sample again till having a distance >=min_value
-            potential_distr = random_state.choice(len(_list), replace=False, size=1)[0]
-            potential_distr = _list[potential_distr]
-            id_distr= int(potential_distr[0])
-            distance = distance_list[id_distr]
-
-        distractors.append(potential_distr.unsqueeze(0))
-    return distractors
-
-def sample_distractor_prob(_list, prob, n, random_state, distance_list):
-    distractors = []
-    for _ in range(n):
+        # If no prob specified, we assume a uniform distribution over the distractors
         potential_distr = random_state.choice(len(_list), replace=False, size=1, p=prob)[0]
         potential_distr = _list[potential_distr]
         id_distr = int(potential_distr[0])
         distance = distance_list[id_distr]
 
-        while (distance == 0):
-            # Sample again till having a distance >=min_value
+        boolean = ((distance < min_value) or (distance == 0)) if min_value else (distance == 0)
+
+        while boolean:
+            # Sample again till boolean
             potential_distr = random_state.choice(len(_list), replace=False, size=1, p=prob)[0]
             potential_distr = _list[potential_distr]
             id_distr= int(potential_distr[0])
             distance = distance_list[id_distr]
+
+            boolean = ((distance < min_value) or (distance == 0)) if min_value else (distance == 0)
 
         distractors.append(potential_distr.unsqueeze(0))
     return distractors
@@ -154,6 +141,7 @@ class _ColorIterator:
 
         if self.batches_generated >= self.n_batches_per_epoch:
             raise StopIteration()
+
         if self.train:
             if self.proba_target == 'uniform':
                 targets_nb = self.random_state.choice(len(self.data), replace=True, size=self.batch_size)
@@ -172,12 +160,9 @@ class _ColorIterator:
             batch_targets.append(target.unsqueeze(0))
             id_target = int(target[0].item())
             distances = self.distance_matrix[id_target]
-            if self.proba_distractor == 'min_val':
-                # Sample n distractor with a distance > min_value
-                distractor_chips = sample_min(self.data, self.min_value, self.n_distractor, self.random_state, distances)
-            elif self.proba_distractor == 'SW':
-                # Sample according to the SW prior
-                distractor_chips = sample_distractor_prob(self.data, proba_SW, self.n_distractor, self.random_state, distances)
+            proba = proba_SW if (self.proba_distractor == 'SW') else None
+            distractor_chips = sample_distractors(self.data, self.n_distractor, self.random_state, distances, prob=proba, min_value=self.min_value)
+
             batch_distractor.append(distractor_chips)
 
         # get label

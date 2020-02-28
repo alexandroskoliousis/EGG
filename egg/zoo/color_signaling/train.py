@@ -34,7 +34,6 @@ def get_params(params):
     parser.add_argument('--batches_per_epoch', type=int, default=100,
                         help='Number of batches per epoch (default: 100)')
     parser.add_argument('--n_distractor', type=int, default=1)
-    parser.add_argument('--percentile', type=float, default=50.0)
 
     parser.add_argument('--receiver_hidden', type=int, default=5,
                         help='Size of the hidden layer of Receiver (default: 5)')
@@ -54,7 +53,9 @@ def get_params(params):
                         help="could be cielab or rgb", choices=['cielab', 'rgb', 'hsl', 'index'])
 
     parser.add_argument('--target_dst', type=str, choices=['uniform', 'SW'], default='uniform')
-    parser.add_argument('--distractor_dst', type=str, choices=['min_val', 'SW'], default='min_val')
+    parser.add_argument('--distractor_dst', type=str, choices=['uniform', 'SW'], default='uniform')
+    parser.add_argument('--percentile', type=float, default=50.0,
+                        help="If 0 there is no minimum target/distractor distance applied.")
 
 
 
@@ -149,13 +150,17 @@ def main(params):
     elif opts.input_space=='hsl':
         data = ColorData_converted(new_space=HSLColor)
 
-    percentile = np.percentile(distance_matrix, opts.percentile)
+    if opts.percentile>0:
+        min_value = np.percentile(distance_matrix, opts.percentile)
+    else:
+        min_value = None
+
     train_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
-                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=percentile, \
+                                    batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=min_value, \
                                     data=data, proba_target=opts.target_dst, proba_distractor=opts.distractor_dst)
     # Same validation across runs by fixing the seed
     val_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=1, train=False, seed=1, \
-                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=percentile, \
+                                    batch_size=len(data), distance_matrix=distance_matrix, min_value=min_value if min_value else np.percentile(distance_matrix, 50), \
                                     data=data)
 
     # initialize the agents and the game
