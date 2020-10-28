@@ -173,11 +173,7 @@ def main(params):
     #                                batch_size=len(data), \
     #                                cluster='/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/languages/darklight_argmaxing.txt', data=data)
 
-
-
     # initialize the agents and the game
-    #sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
-    #receiver = Receiver(opts.receiver_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
     sender = Sender(opts.vocab_size, num_layers=opts.sender_num_hidden, hidden_size=opts.sender_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
     receiver = Receiver(opts.receiver_hidden, num_layers=opts.receiver_num_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
 
@@ -202,9 +198,10 @@ def main(params):
         core.ConsoleLogger(print_train_loss=True, as_json=True),
     ]
 
-
     # initialize and launch the trainer
-    trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
+    #trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
+    trainer = core.SaverTrainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
+    
     trainer.train(n_epochs=opts.n_epochs)
 
     dump(game, val_loader, device, gs=(opts.mode=='gs'))

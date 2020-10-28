@@ -7,6 +7,7 @@ import os
 import uuid
 import pathlib
 from typing import List, Optional
+import pickle
 
 import torch
 from torch.utils.data import DataLoader
@@ -204,3 +205,114 @@ class Trainer:
 
         if latest_file is not None:
             self.load_from_checkpoint(latest_file)
+
+
+
+
+
+class SaverTrainer(Trainer):
+    """
+    Implements the training logic. Some common configuration (checkpointing frequency, path, validation frequency)
+    is done by checking util.common_opts that is set via the CL.
+    This trainer saves the gradient before each backprop.
+    """
+    def __init__(
+            self,
+            game: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            train_data: DataLoader,
+            validation_data: Optional[DataLoader] = None,
+            device: torch.device = None,
+            callbacks: Optional[List[Callback]] = None,
+            N: int = 10,
+    ):
+        """
+        :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),
+            where loss is differentiable loss to be minimized and d is a dictionary (potentially empty) with auxiliary
+            metrics that would be aggregated and reported
+        :param optimizer: An instance of torch.optim.Optimizer
+        :param train_data: A DataLoader for the training set
+        :param validation_data: A DataLoader for the validation set (can be None)
+        :param device: A torch.device on which to tensors should be stored
+        :param callbacks: A list of egg.core.Callback objects that can encapsulate monitoring or checkpointing
+        """
+        super().__init__(game, optimizer, train_data, validation_data, device, callbacks)
+        self.N = N
+
+    def train_epoch(self):
+        mean_loss = 0
+        mean_rest = {}
+        n_batches = 0
+        self.game.train()
+        batches_gradient_Nforward = {}
+        batches_gradient_1forward = {}
+        for batch in self.train_data:
+            batch = move_to(batch, self.device)
+
+            # Get sender gradients after multiple forwards (to compute bias)
+            tmp_list = []
+            for _ in range(self.N):
+                self.optimizer.zero_grad()
+                optimized_loss, _ = self.game(*batch)
+                optimized_loss.backward()
+                tmp_dict = {}
+                for name, param in self.game.sender.named_parameters():
+                    if param.requires_grad:
+                        tmp_dict[name] = param.grad.cpu().numpy()
+                tmp_list.append(tmp_dict)
+            batches_gradient_Nforward[n_batches] = tmp_list
+
+            # Get the gradient to backprob (to compute variance)
+            self.optimizer.zero_grad()
+            optimized_loss, rest = self.game(*batch)
+            mean_rest = _add_dicts(mean_rest, rest)
+            optimized_loss.backward()
+            forward1_dict = {}
+            for name, param in self.game.sender.named_parameters():
+                if param.requires_grad:
+                    forward1_dict[name] = param.grad.cpu().numpy()
+            batches_gradient_1forward[n_batches] = forward1_dict
+            # Backprob
+            self.optimizer.step()
+
+            mean_loss += optimized_loss
+            n_batches += 1
+
+        mean_loss /= n_batches
+        mean_rest = _div_dict(mean_rest, n_batches)
+        return mean_loss.item(), mean_rest, batches_gradient_Nforward, batches_gradient_1forward
+
+    def train(self, n_epochs):
+        for callback in self.callbacks:
+            callback.on_train_begin(self)
+
+        epoch_gradient  = {}
+        for epoch in range(self.start_epoch, n_epochs):
+            for callback in self.callbacks:
+                callback.on_epoch_begin()
+
+            train_loss, train_rest, gradients_Nsamples, gradients_1sample = self.train_epoch()
+            epoch_gradient[epoch] = {'Nsamples': gradients_Nsamples, '1sample': gradients_1sample}
+
+            for callback in self.callbacks:
+                callback.on_epoch_end(train_loss, train_rest)
+
+            if self.validation_data is not None and self.validation_freq > 0 and epoch % self.validation_freq == 0:
+                for callback in self.callbacks:
+                    callback.on_test_begin()
+                validation_loss, rest = self.eval()
+                for callback in self.callbacks:
+                    callback.on_test_end(validation_loss, rest)
+
+            if self.should_stop:
+                break
+    
+        # Save all gradients
+        self.checkpoint_path.mkdir(exist_ok=True)
+        path = self.checkpoint_path / f'gradient.pkl'
+        pickle.dump(epoch_gradient, open(path, 'wb'))   
+
+        for callback in self.callbacks:
+            callback.on_train_end()
+
+

@@ -39,7 +39,6 @@ class GumbelSoftmaxWrapper(nn.Module):
         else:
             return torch.zeros_like(logits).scatter_(-1, logits.argmax(dim=-1, keepdim=True), 1.0)
 
-
 class SymbolGameGS(nn.Module):
     """
     Implements one-symbol Sender/Receiver game. The loss must be differentiable wrt the parameters of the agents.
