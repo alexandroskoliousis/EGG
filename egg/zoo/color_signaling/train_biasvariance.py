@@ -197,6 +197,11 @@ def main(params):
 
     dump(gs_game, val_loader, device, gs=(opts.mode=='gs'))
 
+    callbacks = [
+        EarlyStopperAccuracy(opts.early_stopping_thr),
+        EarlyStopperLoss(delta=opts.early_stopping_delta, patience=opts.early_stopping_patience),
+        core.ConsoleLogger(print_train_loss=True, as_json=True),
+    ]
     # initialize and launch the rf trainer
     rf_optimizer = core.build_optimizer(rf_game.parameters())
     rf_trainer = core.LoaderTrainer(game=rf_game, optimizer=rf_optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks, N=10, loader_path=gs_trainer.checkpoint_path)

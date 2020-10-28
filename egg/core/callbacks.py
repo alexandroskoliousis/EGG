@@ -117,7 +117,6 @@ class TemperatureUpdater(Callback):
 
 
 class Checkpoint_agents(NamedTuple):
-    epoch: int
     sender_state_dict: Dict[str, Any]
     receiver_state_dict: Dict[str, Any]
     optimizer_state_dict: Dict[str, Any]

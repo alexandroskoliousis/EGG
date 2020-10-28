@@ -274,8 +274,7 @@ class SaverTrainer(Trainer):
             # Backprob
             self.optimizer.step()
             # Save updated model
-            checkpoint =  Checkpoint_agents(epoch=epoch,
-                          sender_state_dict=self.game.sender.state_dict(),
+            checkpoint =  Checkpoint_agents(sender_state_dict=self.game.sender.state_dict(),
                           receiver_state_dict=self.game.receiver.state_dict(),
                           optimizer_state_dict=self.optimizer.state_dict())
             
@@ -428,16 +427,15 @@ class LoaderTrainer(Trainer):
 
     def load(self, checkpoint: Checkpoint):
         self.game.sender.load_state_dict(checkpoint.sender_state_dict)
+
         # TODO: hard coded here
         compatible_state_dict = OrderedDict()
         for key, values in checkpoint.receiver_state_dict.items():
             compatible_state_dict[f'agent.{key}'] = values
-
         self.game.receiver.load_state_dict(compatible_state_dict)
 
-        #self.game.load_state_dict(checkpoint.model_state_dict)
+
         self.optimizer.load_state_dict(checkpoint.optimizer_state_dict)
-        self.starting_epoch = checkpoint.epoch
 
 
 
