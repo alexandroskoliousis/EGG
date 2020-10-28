@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .util import get_opts, move_to
-from .callbacks import Callback, ConsoleLogger, Checkpoint, CheckpointSaver
+from .callbacks import Callback, ConsoleLogger, Checkpoint, Checkpoint_agents, CheckpointSaver
 
 
 def _add_dicts(a, b):
@@ -208,8 +208,6 @@ class Trainer:
 
 
 
-
-
 class SaverTrainer(Trainer):
     """
     Implements the training logic. Some common configuration (checkpointing frequency, path, validation frequency)
@@ -275,9 +273,11 @@ class SaverTrainer(Trainer):
             # Backprob
             self.optimizer.step()
             # Save updated model
-            checkpoint =  Checkpoint(epoch=epoch,
-                          model_state_dict=self.game.state_dict(),
+            checkpoint =  Checkpoint_agents(epoch=epoch,
+                          senderagent_state_dict=self.game.sender.agent.state_dict(),
+                          receiveragent_state_dict=self.game.receiver.agent.state_dict(),
                           optimizer_state_dict=self.optimizer.state_dict())
+            
             self.checkpoint_path.mkdir(exist_ok=True)
             path = self.checkpoint_path / f'epoch{epoch}_batch{n_batches}.tar'
             torch.save(checkpoint, path)
@@ -424,5 +424,16 @@ class LoaderTrainer(Trainer):
 
         for callback in self.callbacks:
             callback.on_train_end()
+
+    def load(self, checkpoint: Checkpoint):
+        self.game.sender.agent.load_state_dict(checkpoint.senderagent_state_dict)
+        self.game.receiver.agent.load_state_dict(checkpoint.receiveragent_state_dict)
+        import pdb; pdb.set_trace()
+        #self.game.load_state_dict(checkpoint.model_state_dict)
+        self.optimizer.load_state_dict(checkpoint.optimizer_state_dict)
+        self.starting_epoch = checkpoint.epoch
+
+
+
 
 

@@ -199,8 +199,7 @@ def main(params):
     ]
 
     # initialize and launch the trainer
-    #trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
-    trainer = core.SaverTrainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
+    trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
     
     trainer.train(n_epochs=opts.n_epochs)
 
