@@ -10,6 +10,7 @@ import torch
 import torch.utils.data as data
 from colormath.color_conversions import convert_color
 from colormath.color_objects import LabColor, sRGBColor, HSLColor
+import  pandas as pd
 
 def findposition(value, alist):
     if value==alist[0]:
@@ -114,6 +115,16 @@ def sample_distractors(_list, n, random_state, distance_list, prob=None, min_val
         distractors.append(potential_distr.unsqueeze(0))
     return distractors
 
+def sample_indepdistractors(_list, n, random_state, prob=None):
+    distractors = []
+    for _ in range(n):
+        # If no prob specified, we assume a uniform distribution over the distractors
+        potential_distr = random_state.choice(len(_list), replace=False, size=1, p=prob)[0]
+        potential_distr = _list[potential_distr]
+
+        distractors.append(potential_distr.unsqueeze(0))
+    return distractors
+
 
 class _ColorIterator:
 
@@ -161,6 +172,8 @@ class _ColorIterator:
             id_target = int(target[0].item())
             distances = self.distance_matrix[id_target]
             proba = proba_SW if (self.proba_distractor == 'SW') else None
+            
+            #distractor_chips = sample_indepdistractors(self.data, self.n_distractor, self.random_state, prob=proba)
             distractor_chips = sample_distractors(self.data, self.n_distractor, self.random_state, distances, prob=proba, min_value=self.min_value)
 
             batch_distractor.append(distractor_chips)
@@ -224,6 +237,90 @@ def build_2D_distance_matrix(dataset):
             distance_matrix[j, i] = dist
 
     return distance_matrix
+
+
+class _ClusterIterator:
+
+    def __init__(self, n_distractor, n_batches_per_epoch, batch_size, clusters, data, train=True, seed=None):
+        self.n_batches_per_epoch = n_batches_per_epoch
+        self.n_distractor = n_distractor
+        self.batch_size = batch_size
+        self.batches_generated = 0
+        self.random_state = np.random.RandomState(seed)
+        self.data = data
+        self.clusters = pd.read_csv(clusters,sep="\t")
+        self.train = train
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.batches_generated >= self.n_batches_per_epoch:
+            raise StopIteration()
+        if self.train:
+            targets_nb = self.random_state.choice(len(self.data), replace=True, size=self.batch_size)
+        else:
+            targets_nb = range(len(self.data))
+        # create distractors
+        batch_distractor = []
+        batch_targets = []
+        for target_nb in targets_nb:
+            target = self.data[target_nb]
+            batch_targets.append(target.unsqueeze(0))
+            id_target = int(target[0].item())
+            target_cluster = self.clusters[self.clusters['#cnum']==(id_target+1)]['word']
+            distractor_cluster = 1 - int(target_cluster) # special case as we have either 1 or 0
+            candidate = list(self.clusters[self.clusters['word'] == distractor_cluster]['#cnum'])
+
+            dist_ids = self.random_state.choice(candidate, self.n_distractor)
+            distractor_chips =  [] 
+            for dist_id in dist_ids:
+                # get data with id = dist_id-1
+                for chip in self.data:
+                    _id = int(chip[0])
+                    if _id == dist_id-1:
+                        distractor_chips.append(chip.unsqueeze(0))
+                        break
+
+            batch_distractor.append(distractor_chips)
+
+        # get label
+        labels = []
+        inputs = []
+        for target, distractors in zip(batch_targets, batch_distractor):
+            distractors = torch.cat(distractors, 0)
+            receiver_inp = torch.cat((target, distractors), 0)
+            # Shuffle target/distractor order
+            indexes = self.random_state.permutation(receiver_inp.size()[0])
+            #indexes = torch.randperm(receiver_inp.size()[0])
+            shuffled_inp = receiver_inp[indexes]
+            inputs.append(shuffled_inp)
+            label = indexes.argmin() # target was on position 0 by construction
+            labels.append(label)
+
+        self.batches_generated += 1
+        return torch.cat(batch_targets).float(), torch.LongTensor(labels), torch.stack(inputs,0)
+
+
+class ClusterIterator:
+    def __init__(self, n_distractor, n_batches_per_epoch, batch_size, cluster, data, train=True, seed=None):
+        self.seed = seed
+        self.n_batches_per_epoch = n_batches_per_epoch
+        self.n_distractor = n_distractor
+        self.batch_size = batch_size
+        self.data = data
+        self.cluster = cluster
+        self.train = train
+
+    def __iter__(self):
+        if self.seed is None:
+            seed = np.random.randint(0, 2 ** 32)
+        else:
+            seed = self.seed
+
+        return _ClusterIterator(n_distractor=self.n_distractor, n_batches_per_epoch=self.n_batches_per_epoch, \
+                                batch_size=self.batch_size, clusters=self.cluster, \
+                                train=self.train, data=self.data, seed=self.seed)
 
 
 if __name__ == '__main__':

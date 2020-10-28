@@ -15,8 +15,9 @@ from sklearn.metrics import mutual_info_score
 
 import egg.core as core
 from egg.core import EarlyStopperLoss,EarlyStopperAccuracy
-from egg.zoo.color_signaling.data import ColorData, ColorIterator, build_distance_matrix, Color_2D_Data, ColorData_converted
+from egg.zoo.color_signaling.data import ColorData, ColorIterator, ClusterIterator, build_distance_matrix, Color_2D_Data, ColorData_converted
 from colormath.color_objects import LabColor, sRGBColor, HSLColor
+
 from egg.zoo.color_signaling.archs import Sender, Receiver
 
 N_COLOR_IDS = 330
@@ -158,10 +159,21 @@ def main(params):
     train_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
                                     batch_size=opts.batch_size, distance_matrix=distance_matrix, min_value=min_value, \
                                     data=data, proba_target=opts.target_dst, proba_distractor=opts.distractor_dst)
+
+    #train_loader = ClusterIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=opts.batches_per_epoch, seed=opts.random_seed, \
+    #                                batch_size=opts.batch_size, \
+    #                                cluster='/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/languages/darklight_argmaxing.txt', data=data)
+
     # Same validation across runs by fixing the seed
     val_loader = ColorIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=1, train=False, seed=1, \
                                     batch_size=len(data), distance_matrix=distance_matrix, min_value=min_value if min_value else np.percentile(distance_matrix, 50), \
                                     data=data)
+
+    #val_loader = ClusterIterator(n_distractor=opts.n_distractor, n_batches_per_epoch=1, train=False, seed=1, \
+    #                                batch_size=len(data), \
+    #                                cluster='/private/home/rchaabouni/EGG_public/egg/zoo/color_signaling/data/languages/darklight_argmaxing.txt', data=data)
+
+
 
     # initialize the agents and the game
     #sender = Sender(opts.vocab_size, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
