@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from .util import get_opts, move_to
 from .callbacks import Callback, ConsoleLogger, Checkpoint, Checkpoint_agents, CheckpointSaver
+from collections import OrderedDict
 
 
 def _add_dicts(a, b):
@@ -274,8 +275,8 @@ class SaverTrainer(Trainer):
             self.optimizer.step()
             # Save updated model
             checkpoint =  Checkpoint_agents(epoch=epoch,
-                          senderagent_state_dict=self.game.sender.agent.state_dict(),
-                          receiveragent_state_dict=self.game.receiver.agent.state_dict(),
+                          sender_state_dict=self.game.sender.state_dict(),
+                          receiver_state_dict=self.game.receiver.state_dict(),
                           optimizer_state_dict=self.optimizer.state_dict())
             
             self.checkpoint_path.mkdir(exist_ok=True)
@@ -426,9 +427,14 @@ class LoaderTrainer(Trainer):
             callback.on_train_end()
 
     def load(self, checkpoint: Checkpoint):
-        self.game.sender.agent.load_state_dict(checkpoint.senderagent_state_dict)
-        self.game.receiver.agent.load_state_dict(checkpoint.receiveragent_state_dict)
-        import pdb; pdb.set_trace()
+        self.game.sender.load_state_dict(checkpoint.sender_state_dict)
+        # TODO: hard coded here
+        compatible_state_dict = OrderedDict()
+        for key, values in checkpoint.receiver_state_dict.items():
+            compatible_state_dict[f'agent.{key}'] = values
+
+        self.game.receiver.load_state_dict(compatible_state_dict)
+
         #self.game.load_state_dict(checkpoint.model_state_dict)
         self.optimizer.load_state_dict(checkpoint.optimizer_state_dict)
         self.starting_epoch = checkpoint.epoch
