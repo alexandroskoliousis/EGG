@@ -38,7 +38,7 @@ def get_gradients(game, optimizer, batch):
     tmp_dict = {}
     for name, param in game.sender.named_parameters():
         if param.requires_grad:
-            tmp_dict[name] = param.grad.cpu().numpy()
+            tmp_dict[name] = param.grad.half().cpu().numpy()
     return tmp_dict
 
 class Trainer:
@@ -275,7 +275,7 @@ class SaverTrainer(Trainer):
                 tmp_dict = {}
                 for name, param in self.game.sender.named_parameters():
                     if param.requires_grad:
-                        tmp_dict[name] = param.grad.cpu().numpy()
+                        tmp_dict[name] = param.grad.half().cpu().numpy()
                 tmp_list.append(tmp_dict)
             batches_gradient_Nforward[n_batches] = tmp_list
 
@@ -287,7 +287,7 @@ class SaverTrainer(Trainer):
             forward1_dict = {}
             for name, param in self.game.sender.named_parameters():
                 if param.requires_grad:
-                    forward1_dict[name] = param.grad.cpu().numpy()
+                    forward1_dict[name] = param.grad.half().cpu().numpy()
             batches_gradient_1forward[n_batches] = forward1_dict
             # Backprob
             self.optimizer.step()
@@ -443,7 +443,7 @@ class LoaderTrainer(Trainer):
                 tmp_dict = {}
                 for name, param in self.game.sender.named_parameters():
                     if param.requires_grad:
-                        tmp_dict[name] = param.grad.cpu().numpy()
+                        tmp_dict[name] = param.grad.half().cpu().numpy()
                 tmp_list.append(tmp_dict)
             batches_gradient_Nforward[n_batches] = tmp_list
 
@@ -514,6 +514,7 @@ class SaverLoaderTrainer(Trainer):
             device: torch.device = None,
             callbacks: Optional[List[Callback]] = None,
             N: int = 10,
+            grad_freq: int = 1,
     ):
         """
         :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),
@@ -532,6 +533,7 @@ class SaverLoaderTrainer(Trainer):
         self.rf_optimizer = rf_optimizer
         self.rf_game.to(self.device)
         self.rf_optimizer.state = move_to(self.rf_optimizer.state, self.device)
+        self.grad_freq = grad_freq 
 
     def train_epoch(self, epoch):
         mean_loss = 0
@@ -543,31 +545,30 @@ class SaverLoaderTrainer(Trainer):
         batches_gradient_1forward = {}
         for batch in self.train_data:
             batch = move_to(batch, self.device)
+            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0):
+                # Get sender gradients after multiple forwards (to compute bias)
+                tmp_list = []
+                for _ in range(self.N):
+                    tmp_dict = get_gradients(self.game, self.optimizer, batch)
+                    tmp_list.append(tmp_dict)
+                batches_gradient_Nforward[n_batches] = tmp_list
 
-            # Get sender gradients after multiple forwards (to compute bias)
-            tmp_list = []
-            for _ in range(self.N):
-                tmp_dict = get_gradients(self.game, self.optimizer, batch)
-                tmp_list.append(tmp_dict)
-            batches_gradient_Nforward[n_batches] = tmp_list
-
-            # Get sender RF gradients  (to compute bias)
-            ## Update rf_game with game parameters (same for rf_optimizer)
-            self.rf_game.sender.load_state_dict(self.game.sender.state_dict())
-            # TODO: hard coded here
-            #compatible_state_dict = OrderedDict()
-            #for key, values in self.game.receiver.state_dict().items():
-            #    compatible_state_dict[f'agent.{key}'] = values
-
-            compatible_state_dict = self.game.receiver.state_dict()
-            self.rf_game.receiver.load_state_dict(compatible_state_dict)
-            self.rf_optimizer.load_state_dict(self.optimizer.state_dict())
-            ## Get RF gradients
-            tmp_list = []
-            for _ in range(self.N):
-                tmp_dict = get_gradients(self.rf_game, self.rf_optimizer, batch)
-                tmp_list.append(tmp_dict)
-            RF_batches_gradient_Nforward[n_batches] = tmp_list
+                # Get sender RF gradients  (to compute bias)
+                ## Update rf_game with game parameters (same for rf_optimizer)
+                self.rf_game.sender.load_state_dict(self.game.sender.state_dict())
+                # TODO: hard coded here
+                compatible_state_dict = OrderedDict()
+                for key, values in self.game.receiver.state_dict().items():
+                    compatible_state_dict[f'agent.{key}'] = values
+                #compatible_state_dict = self.game.receiver.state_dict()            
+                self.rf_game.receiver.load_state_dict(compatible_state_dict)
+                self.rf_optimizer.load_state_dict(self.optimizer.state_dict())
+                ## Get RF gradients
+                tmp_list = []
+                for _ in range(self.N):
+                    tmp_dict = get_gradients(self.rf_game, self.rf_optimizer, batch)
+                    tmp_list.append(tmp_dict)
+                RF_batches_gradient_Nforward[n_batches] = tmp_list
 
             # Get the gradient to backprob (to compute variance)
             self.optimizer.zero_grad()
@@ -575,10 +576,11 @@ class SaverLoaderTrainer(Trainer):
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             forward1_dict = {}
-            for name, param in self.game.sender.named_parameters():
-                if param.requires_grad:
-                    forward1_dict[name] = param.grad.cpu().numpy()
-            batches_gradient_1forward[n_batches] = forward1_dict
+            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0):
+                for name, param in self.game.sender.named_parameters():
+                    if param.requires_grad:
+                        forward1_dict[name] = param.grad.half().cpu().numpy()
+                batches_gradient_1forward[n_batches] = forward1_dict
             # Backprob
             self.optimizer.step()
 
@@ -599,7 +601,8 @@ class SaverLoaderTrainer(Trainer):
                 callback.on_epoch_begin()
 
             train_loss, train_rest, rf_gradients_Nsamples, gradients_Nsamples, gradients_1sample = self.train_epoch(epoch)
-            epoch_gradient[epoch] = {'RFNsamples': rf_gradients_Nsamples, 'Nsamples': gradients_Nsamples, '1sample': gradients_1sample}
+            if (self.grad_freq!= 0) and (epoch % self.grad_freq == 0):
+                epoch_gradient[epoch] = {'RFNsamples': rf_gradients_Nsamples, 'Nsamples': gradients_Nsamples, '1sample': gradients_1sample}
 
             for callback in self.callbacks:
                 callback.on_epoch_end(train_loss, train_rest)
