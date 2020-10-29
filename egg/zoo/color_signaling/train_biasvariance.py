@@ -173,7 +173,6 @@ def main(params):
     sender = Sender(opts.vocab_size, num_layers=opts.sender_num_hidden, hidden_size=opts.sender_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)  # the "data" transform part of an agent
     receiver = Receiver(opts.receiver_hidden, num_layers=opts.receiver_num_hidden, n_colors=N_COLOR_IDS, ids=opts.input_id)
 
-
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
     gs_sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)

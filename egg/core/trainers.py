@@ -89,8 +89,6 @@ class Trainer:
             checkpointer = CheckpointSaver(checkpoint_path=self.checkpoint_path, checkpoint_freq=common_opts.checkpoint_freq)
             self.callbacks.append(checkpointer)
 
-
-
         if self.callbacks is None:
             self.callbacks = [
                 ConsoleLogger(print_train_loss=False, as_json=False),
@@ -237,6 +235,15 @@ class SaverTrainer(Trainer):
         """
         super().__init__(game, optimizer, train_data, validation_data, device, callbacks)
         self.N = N
+        self.checkpoint_path.mkdir(exist_ok=True)
+
+        # Save initialization model
+        checkpoint =  Checkpoint_agents(sender_state_dict=self.game.sender.state_dict(),
+                        receiver_state_dict=self.game.receiver.state_dict(),
+                        optimizer_state_dict=self.optimizer.state_dict())
+        
+        path = self.checkpoint_path / f'initial.tar'
+        torch.save(checkpoint, path)
 
     def train_epoch(self, epoch):
         mean_loss = 0
@@ -278,7 +285,6 @@ class SaverTrainer(Trainer):
                           receiver_state_dict=self.game.receiver.state_dict(),
                           optimizer_state_dict=self.optimizer.state_dict())
             
-            self.checkpoint_path.mkdir(exist_ok=True)
             path = self.checkpoint_path / f'epoch{epoch}_batch{n_batches}.tar'
             torch.save(checkpoint, path)
 
@@ -315,13 +321,11 @@ class SaverTrainer(Trainer):
                 break
     
         # Save all gradients
-        self.checkpoint_path.mkdir(exist_ok=True)
         path = self.checkpoint_path / f'saver_gradient.pkl'
         pickle.dump(epoch_gradient, open(path, 'wb'))   
 
         for callback in self.callbacks:
             callback.on_train_end()
-
 
 
 class LoaderTrainer(Trainer):
@@ -351,11 +355,60 @@ class LoaderTrainer(Trainer):
         :param device: A torch.device on which to tensors should be stored
         :param callbacks: A list of egg.core.Callback objects that can encapsulate monitoring or checkpointing
         """
-        super().__init__(game, optimizer, train_data, validation_data, device, callbacks)
+        """
+        :param game: A nn.Module that implements forward(); it is expected that forward returns a tuple of (loss, d),
+            where loss is differentiable loss to be minimized and d is a dictionary (potentially empty) with auxiliary
+            metrics that would be aggregated and reported
+        :param optimizer: An instance of torch.optim.Optimizer
+        :param train_data: A DataLoader for the training set
+        :param validation_data: A DataLoader for the validation set (can be None)
+        :param device: A torch.device on which to tensors should be stored
+        :param callbacks: A list of egg.core.Callback objects that can encapsulate monitoring or checkpointing
+        """
+        self.game = game
+        self.optimizer = optimizer
+        self.train_data = train_data
+        self.validation_data = validation_data
+        common_opts = get_opts()
+        self.validation_freq = common_opts.validation_freq
+        self.device = common_opts.device if device is None else device
+        self.game.to(self.device)
+        # NB: some optimizers pre-allocate buffers before actually doing any steps
+        # since model is placed on GPU within Trainer, this leads to having optimizer's state and model parameters
+        # on different devices. Here, we protect from that by moving optimizer's internal state to the proper device
+        self.optimizer.state = move_to(self.optimizer.state, self.device)
+        self.should_stop = False
+        self.start_epoch = 0  # Can be overwritten by checkpoint loader
+        self.callbacks = callbacks
+
+        d = self._get_preemptive_checkpoint_dir(common_opts.checkpoint_dir)
+        self.checkpoint_path = d
+
+        if self.checkpoint_path:
+            checkpointer = CheckpointSaver(checkpoint_path=self.checkpoint_path, checkpoint_freq=common_opts.checkpoint_freq)
+            self.callbacks.append(checkpointer)
+        self.checkpoint_path.mkdir(exist_ok=True)
+
+        if self.callbacks is None:
+            self.callbacks = [
+                ConsoleLogger(print_train_loss=False, as_json=False),
+            ]
+
         self.N = N
         self.loader_path = loader_path
 
+        # Make sure we start from the same initialization
+        if self.loader_path:
+            path = self.loader_path / f'initial.tar'
+            self.load_from_checkpoint(path)
+        else:
+            print('need to specify loader path')
+            raise Exception
+
+
     def train_epoch(self, epoch):
+        print('here we are')
+        print(epoch, self.loader_path)
         mean_loss = 0
         mean_rest = {}
         n_batches = 0
@@ -418,7 +471,6 @@ class LoaderTrainer(Trainer):
                 break
     
         # Save all gradients
-        self.checkpoint_path.mkdir(exist_ok=True)
         path = self.checkpoint_path / f'loader_gradient.pkl'
         pickle.dump(epoch_gradient, open(path, 'wb'))   
 
@@ -433,7 +485,6 @@ class LoaderTrainer(Trainer):
         for key, values in checkpoint.receiver_state_dict.items():
             compatible_state_dict[f'agent.{key}'] = values
         self.game.receiver.load_state_dict(compatible_state_dict)
-
 
         self.optimizer.load_state_dict(checkpoint.optimizer_state_dict)
 
