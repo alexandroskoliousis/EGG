@@ -175,13 +175,9 @@ def main(params):
 
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
-    #gs_sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)
-    #gs_receiver = copy.deepcopy(receiver)
-    #gs_game = core.SymbolGameGS(gs_sender, gs_receiver, cross_entropy) 
-
-    gs_sender = core.ReinforceWrapper(sender)
-    gs_receiver = core.ReinforceDeterministicWrapper(receiver)
-    gs_game = core.SymbolGameReinforce(gs_sender, gs_receiver, cross_entropy, 0)
+    gs_sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)
+    gs_receiver = copy.deepcopy(receiver)
+    gs_game = core.SymbolGameGS(gs_sender, gs_receiver, cross_entropy) 
 
     rf_sender = core.ReinforceWrapper(sender)
     rf_receiver = core.ReinforceDeterministicWrapper(receiver)
