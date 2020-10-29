@@ -175,9 +175,13 @@ def main(params):
 
     receiver = core.SymbolReceiverWrapper(receiver, vocab_size=opts.vocab_size, agent_input_size=opts.receiver_hidden)
 
-    gs_sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)
-    gs_receiver = copy.deepcopy(receiver)
-    gs_game = core.SymbolGameGS(gs_sender, gs_receiver, cross_entropy) 
+    #gs_sender = core.GumbelSoftmaxWrapper(sender, temperature=opts.temperature)
+    #gs_receiver = copy.deepcopy(receiver)
+    #gs_game = core.SymbolGameGS(gs_sender, gs_receiver, cross_entropy) 
+
+    gs_sender = core.ReinforceWrapper(sender)
+    gs_receiver = core.ReinforceDeterministicWrapper(receiver)
+    gs_game = core.SymbolGameReinforce(gs_sender, gs_receiver, cross_entropy, 0)
 
     rf_sender = core.ReinforceWrapper(sender)
     rf_receiver = core.ReinforceDeterministicWrapper(receiver)
@@ -191,20 +195,12 @@ def main(params):
     
     # initialize and launch the gs trainer
     gs_optimizer = core.build_optimizer(gs_game.parameters())
-    gs_trainer = core.SaverTrainer(game=gs_game, optimizer=gs_optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks, N=10) # TODO: remove hard code N
+    gs_trainer = core.SaverLoaderTrainer(game=gs_game, optimizer=gs_optimizer, train_data=train_loader, validation_data=val_loader, \
+        callbacks=callbacks, N=10, rf_game=rf_game, rf_optimizer=core.build_optimizer(rf_game.parameters())) # TODO: remove hard code N
     gs_trainer.train(n_epochs=opts.n_epochs)
 
     dump(gs_game, val_loader, device, gs=(opts.mode=='gs'))
 
-    callbacks = [
-        EarlyStopperAccuracy(opts.early_stopping_thr),
-        EarlyStopperLoss(delta=opts.early_stopping_delta, patience=opts.early_stopping_patience),
-        core.ConsoleLogger(print_train_loss=True, as_json=True),
-    ]
-    # initialize and launch the rf trainer
-    rf_optimizer = core.build_optimizer(rf_game.parameters())
-    rf_trainer = core.LoaderTrainer(game=rf_game, optimizer=rf_optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks, N=10, loader_path=gs_trainer.checkpoint_path)
-    rf_trainer.train(n_epochs=opts.n_epochs)
 
     core.close()
 
