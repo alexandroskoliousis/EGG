@@ -407,8 +407,6 @@ class LoaderTrainer(Trainer):
 
 
     def train_epoch(self, epoch):
-        print('here we are')
-        print(epoch, self.loader_path)
         mean_loss = 0
         mean_rest = {}
         n_batches = 0
