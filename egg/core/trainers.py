@@ -545,7 +545,7 @@ class SaverLoaderTrainer(Trainer):
         batches_gradient_1forward = {}
         for batch in self.train_data:
             batch = move_to(batch, self.device)
-            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0):
+            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0): #and (epoch>50):  #TODO: hard coding (do not save the first epochs as huge variance)
                 # Get sender gradients after multiple forwards (to compute bias)
                 tmp_list = []
                 for _ in range(self.N):
@@ -565,7 +565,7 @@ class SaverLoaderTrainer(Trainer):
                 self.rf_optimizer.load_state_dict(self.optimizer.state_dict())
                 ## Get RF gradients
                 tmp_list = []
-                for _ in range(self.N):
+                for _ in range(5*self.N):
                     tmp_dict = get_gradients(self.rf_game, self.rf_optimizer, batch)
                     tmp_list.append(tmp_dict)
                 RF_batches_gradient_Nforward[n_batches] = tmp_list
@@ -576,7 +576,7 @@ class SaverLoaderTrainer(Trainer):
             mean_rest = _add_dicts(mean_rest, rest)
             optimized_loss.backward()
             forward1_dict = {}
-            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0):
+            if (self.grad_freq != 0) and (epoch % self.grad_freq == 0): #and (epoch>50):
                 for name, param in self.game.sender.named_parameters():
                     if param.requires_grad:
                         forward1_dict[name] = param.grad.half().cpu().numpy()
@@ -601,7 +601,7 @@ class SaverLoaderTrainer(Trainer):
                 callback.on_epoch_begin()
 
             train_loss, train_rest, rf_gradients_Nsamples, gradients_Nsamples, gradients_1sample = self.train_epoch(epoch)
-            if (self.grad_freq!= 0) and (epoch % self.grad_freq == 0):
+            if (self.grad_freq!= 0) and (epoch % self.grad_freq == 0): #and (epoch>50):
                 epoch_gradient[epoch] = {'RFNsamples': rf_gradients_Nsamples, 'Nsamples': gradients_Nsamples, '1sample': gradients_1sample}
 
             for callback in self.callbacks:

@@ -59,9 +59,8 @@ def get_params(params):
     parser.add_argument('--distractor_dst', type=str, choices=['uniform', 'SW'], default='uniform')
     parser.add_argument('--percentile', type=float, default=50.0,
                         help="If 0 there is no minimum target/distractor distance applied.")
-
-
-
+    parser.add_argument('--grad_freq', type=int, default=20,
+                        help="gradient checkpoint frequency")
 
 
     args = core.init(arg_parser=parser, params=params)
@@ -192,7 +191,7 @@ def main(params):
     # initialize and launch the gs trainer
     gs_optimizer = core.build_optimizer(gs_game.parameters())
     gs_trainer = core.SaverLoaderTrainer(game=gs_game, optimizer=gs_optimizer, train_data=train_loader, validation_data=val_loader, \
-        callbacks=callbacks, N=10, rf_game=rf_game, rf_optimizer=core.build_optimizer(rf_game.parameters()), grad_freq=20) # TODO: remove hard code N
+        callbacks=callbacks, N=10, rf_game=rf_game, rf_optimizer=core.build_optimizer(rf_game.parameters()), grad_freq=opts.grad_freq) # TODO: remove hard code N
     gs_trainer.train(n_epochs=opts.n_epochs)
 
     dump(gs_game, val_loader, device, gs=(opts.mode=='gs'))
