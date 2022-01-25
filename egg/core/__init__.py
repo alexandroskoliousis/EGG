@@ -27,6 +27,7 @@ __all__ = [
     'build_optimizer',
     'Callback',
     'EarlyStopperAccuracy',
+    'EarlyStopperLoss',
     'ConsoleLogger',
     'TensorboardLogger',
     'TemperatureUpdater',
