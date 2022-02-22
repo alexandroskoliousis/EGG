@@ -1,3 +1,6 @@
+# Ignore downloaded IB model
+egg/zoo/color_signaling/models/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
