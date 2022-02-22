@@ -113,7 +113,7 @@ class Sender(nn.Module):
         fcs.append(nn.Linear(hidden_size, vocab_size))
         self.fcs = nn.ModuleList(fcs)
 
-    def forward(self, x):
+    def forward(self, x, debug=False):
         if self.ids<3:
             if self.ids==1:
                 x = x[:, 0:1].long() # only color-id
@@ -127,7 +127,22 @@ class Sender(nn.Module):
             x = F.leaky_relu(x)
 
         x = self.fcs[-1](x)
-        return x.log_softmax(dim=-1)
+
+        # Modified by akoliousis for debugging purposes
+        result = x.log_softmax(dim=-1)
+        if debug:
+            print("[DBG] Sender output tensor has shape", result.shape)
+            print(result)
+            # expected = x.softmax(dim=-1)
+            # esum = expected.sum(dim=-1)
+            # print(esum.shape, esum)
+            actual = torch.exp(result)
+            asum = torch.sum(actual, dim=-1)
+            print(asum.shape, asum)
+            # print(expected)
+            # print(actual)
+            # assert torch.allclose(expected, actual)
+        return result
 
 
 class Receiver(nn.Module):
