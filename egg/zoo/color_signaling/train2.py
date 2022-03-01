@@ -213,6 +213,7 @@ def main(params):
 
     # initialize and launch the trainer
     trainer = core.Trainer(game=game, optimizer=optimizer, train_data=train_loader, validation_data=val_loader, callbacks=callbacks)
+    # Some change
     trainer.train(n_epochs=opts.n_epochs)
 
     mydataset = [x for x in val_loader][0]
@@ -286,7 +287,7 @@ def main(params):
     plt.title('Optimal IB system for $\\beta = %.3f$' % bl)
     plt.tight_layout()
     plt.show()
-    
+
     with open("Training_params.txt", "a") as o:
         o.write("\n")
         o.write("complexity: ")
