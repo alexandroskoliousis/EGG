@@ -227,6 +227,17 @@ def main(params):
         probs = torch.exp(messages)
         # psum = probs.sum(dim=-1)
         # print(psum.shape, psum)
+
+    # Training_params open file to see saved accuracy complexity for the given parameters
+    args_namespace = argparse.Namespace()
+    for key, value in opts.__dict__.items():
+        setattr(args_namespace, key, value)
+
+    with open("Training_params.txt", "a") as o:
+        o.write("\n")
+        o.write(args_namespace.__str__())
+        o.write("\n")
+        o.close()
     
     dump(game, val_loader, device, gs=(opts.mode=='gs'))
     
@@ -287,14 +298,14 @@ def main(params):
     plt.title('Optimal IB system for $\\beta = %.3f$' % bl)
     plt.tight_layout()
     plt.show()
-
+    # Training_params open file to see saved accuracy complexity for the given parameters
     with open("Training_params.txt", "a") as o:
         o.write("\n")
         o.write("complexity: ")
-        o.write(model.complexity(qW_M).__str__())
+        o.write(complexity.__str__())
         o.write("\n")
         o.write("accuracy: ")
-        o.write(model.accuracy(qW_M).__str__())
+        o.write(accuracy.__str__())
         o.write("\n")
 
 
