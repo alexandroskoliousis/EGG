@@ -286,6 +286,15 @@ def main(params):
     plt.title('Optimal IB system for $\\beta = %.3f$' % bl)
     plt.tight_layout()
     plt.show()
+    
+    with open("Training_params.txt", "a") as o:
+        o.write("\n")
+        o.write("complexity: ")
+        o.write(model.complexity(qW_M).__str__())
+        o.write("\n")
+        o.write("accuracy: ")
+        o.write(model.accuracy(qW_M).__str__())
+        o.write("\n")
 
 
 if __name__ == "__main__":

@@ -132,6 +132,13 @@ def dump(game, test_data, device, gs):
         print(f'input sender: {s_inp.item()} | input receiver: {[r.item() for r in r_inp]} -> message: {message.item()} -> output: {out.item()}', flush=True)
     print(f'acc={unif_acc/sender_inp.size(0)}')
 
+    x= f'Train.py accuracy={unif_acc/sender_inp.size(0)}'
+    with open("Training_params.txt", "a") as o:
+        o.write("\n")
+        o.write(x.__str__())
+        o.write("\n")
+        o.close()
+
 
 def main(params):
     opts = get_params(params)
@@ -209,7 +216,18 @@ def main(params):
 
     dump(game, val_loader, device, gs=(opts.mode=='gs'))
     core.close()
+    args_namespace = argparse.Namespace()
+    for key, value in opts.__dict__.items():
+        setattr(args_namespace, key, value)
+    # print('asdasd',args_namespace)
+    # print(type(args_namespace))
 
+
+    with open("Training_params.txt", "a") as o:
+        o.write("\n")
+        o.write(args_namespace.__str__())
+        o.write("\n")
+        o.close()
 
 if __name__ == "__main__":
     import sys
